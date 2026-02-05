@@ -15,7 +15,8 @@
   "description": "",
   "dependencies": {
     "@hono/node-server": "^1.13.0",
-    "hono": "^4.5.0"
+    "hono": "^4.5.0",
+    "shared": "workspace:*"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.23",

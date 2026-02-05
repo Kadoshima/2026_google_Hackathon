@@ -14,13 +14,13 @@
   `./Implementation_details/FE-001.md`
   担当者: 
 
-* [ ] **DEV-001：ローカル開発の起動導線（pnpm scripts / env / README）**
+* [x] **DEV-001：ローカル開発の起動導線（pnpm scripts / env / README）**
   `./Implementation_details/DEV-001.md`
   担当者: 
 
-* [ ] **DEV-002：共通の型共有方針（api schema or shared package）決定＆最小実装**
+* [x] **DEV-002：共通の型共有方針（api schema or shared package）決定＆最小実装**
   `./Implementation_details/DEV-002.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 
@@ -36,7 +36,7 @@
 
 * [ ] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
   `./Implementation_details/INF-003.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **INF-004：Cloud Run（API）デプロイ最小（Hello + healthz）**
   `./Implementation_details/INF-004.md`
@@ -50,13 +50,13 @@
 
 ## C. Backend API最小（アップロード→解析ジョブ→ポーリング）
 
-* [ ] **BE-010：Honoサーバ雛形（entry/server/route登録）**
+* [x] **BE-010：Honoサーバ雛形（entry/server/route登録）**
   `./Implementation_details/BE-010.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-011：データモデル Enum 定義（InputType/Status/Retention/Step）**
+* [x] **BE-011：データモデル Enum 定義（InputType/Status/Retention/Step）**
   `./Implementation_details/BE-011.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-012：Session 型の作成**
   `./Implementation_details/BE-012.md`

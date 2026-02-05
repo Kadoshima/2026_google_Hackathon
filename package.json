@@ -1,0 +1,9 @@
+{
+  "name": "2026-google-hackathon",
+  "private": true,
+  "workspaces": [
+    "front",
+    "back",
+    "shared"
+  ]
+}
