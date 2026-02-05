@@ -6,11 +6,8 @@ import { formatDate } from '@/lib/utils';
 import { FileText, X, Clock } from 'lucide-react';
 
 export function SideNav() {
-  const { uiState, sessions, isSideNavOpen } = useAppStore((state) => ({
-    uiState: state.uiState,
-    sessions: state.sessions,
-    isSideNavOpen: state.uiState.isSideNavOpen,
-  }));
+  const sessions = useAppStore((state) => state.sessions);
+  const isSideNavOpen = useAppStore((state) => state.uiState.isSideNavOpen);
 
   if (!isSideNavOpen) return null;
 

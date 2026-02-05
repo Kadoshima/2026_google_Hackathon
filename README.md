@@ -1,6 +1,44 @@
-# 要件定義書（ドラフト）
+# Reviewer Zero
 
-## 自律型・投稿前査読オーケストレーター「Reviewer Zero — IEICE Letter Preflight & Oral Defense」
+自律型・投稿前査読オーケストレーター「Reviewer Zero — IEICE Letter Preflight & Oral Defense」
+
+---
+
+## 🚀 Quick Start
+
+### フロントエンドの起動（Docker Compose）
+
+```bash
+# 1. リポジトリをクローン
+git clone <repository-url>
+cd front
+
+# 2. Docker Compose で起動（初回は自動ビルド）
+docker compose up --build
+
+# 3. ブラウザでアクセス
+open http://localhost:3000
+```
+
+### よく使うコマンド
+
+```bash
+# バックグラウンドで起動
+docker compose up -d --build
+
+# ログを見る
+docker compose logs -f frontend
+
+# 停止
+docker compose down
+
+# コンテナ・イメージを完全削除してリセット
+docker compose down --rmi all -v
+```
+
+### 開発モード（ホットリロード対応）
+
+`docker compose up` した状態で `front/src/` 内のファイルを編集すると、自動でブラウザに反映されます。
 
 ---
 
