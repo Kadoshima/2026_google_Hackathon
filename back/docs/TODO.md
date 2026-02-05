@@ -40,107 +40,167 @@
 
 ## C. Backend API最小（アップロード→解析ジョブ→ポーリング）
 
-* [ ] **BE-010：Fastifyサーバ雛形（routing/validation/logger/error）**
+* [ ] **BE-010：Honoサーバ雛形（entry/server/route登録）**
   `./Implementation_details/BE-010.md`
 
-* [ ] **BE-011：データモデル定義（Session/Submission/Analysis）＋ID生成ユーティリティ**
+* [ ] **BE-011：データモデル Enum 定義（InputType/Status/Retention/Step）**
   `./Implementation_details/BE-011.md`
 
-* [ ] **BE-012：StorageService（GCS put/getSignedUrl/putJson）実装**
+* [ ] **BE-012：Session 型の作成**
   `./Implementation_details/BE-012.md`
 
-* [ ] **BE-013：FirestoreRepo（create/update/get）実装**
+* [ ] **BE-013：Submission 型の作成**
   `./Implementation_details/BE-013.md`
 
-* [ ] **BE-014：POST /v1/upload（ZIP/PDF受理→GCS保存→Firestore記録）**
+* [ ] **BE-014：Analysis 型の作成**
   `./Implementation_details/BE-014.md`
 
-* [ ] **BE-015：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
+* [ ] **BE-015：ConversationTurn 型の作成**
   `./Implementation_details/BE-015.md`
 
-* [ ] **BE-016：GET /v1/analysis/:analysisId（進捗ポーリング）**
+* [ ] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
   `./Implementation_details/BE-016.md`
+
+* [ ] **BE-017：共通エラー型（errorレスポンス形）**
+  `./Implementation_details/BE-017.md`
+
+* [ ] **BE-018：Firestore 初期化（client生成）**
+  `./Implementation_details/BE-018.md`
+
+* [ ] **BE-019：FirestoreRepo.createSession**
+  `./Implementation_details/BE-019.md`
+
+* [ ] **BE-020：FirestoreRepo.createSubmission**
+  `./Implementation_details/BE-020.md`
+
+* [ ] **BE-021：FirestoreRepo.createAnalysis**
+  `./Implementation_details/BE-021.md`
+
+* [ ] **BE-022：FirestoreRepo.updateAnalysisStatus**
+  `./Implementation_details/BE-022.md`
+
+* [ ] **BE-023：FirestoreRepo.setPointers**
+  `./Implementation_details/BE-023.md`
+
+* [ ] **BE-024：FirestoreRepo.setMetrics**
+  `./Implementation_details/BE-024.md`
+
+* [ ] **BE-025：FirestoreRepo.saveConversationTurn**
+  `./Implementation_details/BE-025.md`
+
+* [ ] **BE-026：FirestoreRepo.getAnalysis**
+  `./Implementation_details/BE-026.md`
+
+* [ ] **BE-027：GCS 初期化（client生成）**
+  `./Implementation_details/BE-027.md`
+
+* [ ] **BE-028：StorageService.putRawFile**
+  `./Implementation_details/BE-028.md`
+
+* [ ] **BE-029：StorageService.putJson**
+  `./Implementation_details/BE-029.md`
+
+* [ ] **BE-030：StorageService.getSignedUrl**
+  `./Implementation_details/BE-030.md`
+
+* [ ] **BE-031：Cloud Tasks 初期化（client生成）**
+  `./Implementation_details/BE-031.md`
+
+* [ ] **BE-032：TasksService.enqueueAnalysisTask**
+  `./Implementation_details/BE-032.md`
+
+* [ ] **BE-033：GET /v1/healthz**
+  `./Implementation_details/BE-033.md`
+
+* [ ] **BE-034：POST /v1/upload（multipart受理＋metadata parse）**
+  `./Implementation_details/BE-034.md`
+
+* [ ] **BE-035：POST /v1/upload（GCS保存→Firestore記録）**
+  `./Implementation_details/BE-035.md`
+
+* [ ] **BE-036：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
+  `./Implementation_details/BE-036.md`
+
+* [ ] **BE-037：GET /v1/analysis/:analysisId（進捗ポーリング）**
+  `./Implementation_details/BE-037.md`
 
 ---
 
 ## D. Worker実装（抽出→中間JSON保存→最低限の結果作成）
 
-* [ ] **BE-020：/internal/tasks/analysis（Cloud Tasksから起動されるWorker endpoint）**
-  `./Implementation_details/BE-020.md`
+* [ ] **BE-040：POST /internal/tasks/analysis（Cloud Tasks起動）**
+  `./Implementation_details/BE-040.md`
 
-* [ ] **BE-021：冪等性ロック（Firestoreトランザクションで二重実行防止）**
-  `./Implementation_details/BE-021.md`
+* [ ] **BE-041：冪等性ロック（Firestoreトランザクションで二重実行防止）**
+  `./Implementation_details/BE-041.md`
 
-* [ ] **BE-022：LaTeX ZIPの安全展開（zip-slip対策/許可拡張子制限）**
-  `./Implementation_details/BE-022.md`
+* [ ] **BE-042：LaTeX ZIPの安全展開（zip-slip対策/許可拡張子制限）**
+  `./Implementation_details/BE-042.md`
 
-* [ ] **BE-023：LatexExtractor（sections/paragraphs/figures/citations の最小抽出）**
-  `./Implementation_details/BE-023.md`
+* [ ] **BE-043：LatexExtractor（sections/paragraphs/figures/citations 最小抽出）**
+  `./Implementation_details/BE-043.md`
 
-* [ ] **BE-024：PdfExtractor（ベータ：テキスト抽出＋段落分割の最小）**
-  `./Implementation_details/BE-024.md`
+* [ ] **BE-044：PdfExtractor（ベータ：テキスト抽出＋段落分割）**
+  `./Implementation_details/BE-044.md`
 
-* [ ] **BE-025：ExtractJson仕様の確定＆GCS保存（extract/{analysisId}/extract.json）**
-  `./Implementation_details/BE-025.md`
+* [ ] **BE-045：ExtractJson仕様の確定＆GCS保存（extract/{analysisId}/extract.json）**
+  `./Implementation_details/BE-045.md`
 
-* [ ] **BE-026：Preflight最小（参照漏れ：図表/引用）検出**
-  `./Implementation_details/BE-026.md`
+* [ ] **BE-046：Preflight最小（参照漏れ：図表/引用）検出**
+  `./Implementation_details/BE-046.md`
 
 ---
 
 ## E. LLM接続（Vertex AI）＋解析パイプライン（必殺技まで）
 
-* [ ] **BE-030：Vertex AIクライアント実装（モデル名env/タイムアウト/リトライ）**
-  `./Implementation_details/BE-030.md`
+* [ ] **BE-050：Vertex AIクライアント雛形（runPrompt/timeout/retry）**
+  `./Implementation_details/BE-050.md`
 
-* [ ] **BE-031：LLM出力JSONスキーマ（Zod/TypeBox）整備（必須）**
-  `./Implementation_details/BE-031.md`
+* [ ] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
+  `./Implementation_details/BE-051.md`
 
-* [ ] **BE-032：Claim抽出（段落ID付き）プロンプト＋実装（Evidence Auditorの前段）**
-  `./Implementation_details/BE-032.md`
+* [ ] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
+  `./Implementation_details/BE-052.md`
 
-* [ ] **BE-033：Evidence候補抽出（ルール：図表参照/引用キー/数値表現）**
-  `./Implementation_details/BE-033.md`
+* [ ] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
+  `./Implementation_details/BE-053.md`
 
-* [ ] **BE-034：Claim–Evidence Link生成（LLM）＋support分類（STRONG/WEAK/NONE）**
-  `./Implementation_details/BE-034.md`
+* [ ] **BE-054：EvidenceAuditor 雛形（I/O定義）**
+  `./Implementation_details/BE-054.md`
 
-* [ ] **BE-035：metrics算出（noEvidenceClaims / weakEvidenceClaims / specificityLack）**
-  `./Implementation_details/BE-035.md`
+* [ ] **BE-055：LogicSentinel 雛形（I/O定義）**
+  `./Implementation_details/BE-055.md`
 
-* [ ] **BE-036：致命傷Top3（Rejectリスク上位3）生成（根拠refs必須）**
-  `./Implementation_details/BE-036.md`
+* [ ] **BE-056：PriorArtCoach 雛形（I/O定義）**
+  `./Implementation_details/BE-056.md`
 
-* [ ] **BE-037：Prior-Art Coach（検索クエリ案＋Related Work差分表テンプレ生成）**
-  `./Implementation_details/BE-037.md`
-
-* [ ] **BE-038：ToDo Top10（Impact×Effort）生成（最低限のランキング）**
-  `./Implementation_details/BE-038.md`
-
-* [ ] **BE-039：analysis/result.json 生成＆GCS保存（analysis/{analysisId}/result.json）**
-  `./Implementation_details/BE-039.md`
-
-* [ ] **BE-040：analysis READY時のレスポンス設計（署名URL返却）**
-  `./Implementation_details/BE-040.md`
+* [ ] **BE-057：Scoring 雛形（metrics算出I/O）**
+  `./Implementation_details/BE-057.md`
 
 ---
 
 ## F. Oral Defense（口頭試問API）＋Patch（diff）＋Report
 
-* [ ] **BE-050：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
-  `./Implementation_details/BE-050.md`
-
-* [ ] **BE-051：会話ログ保存（保存ON時のみ）＋refs（paragraphIds/claimIds/figIds）**
-  `./Implementation_details/BE-051.md`
-
-* [ ] **BE-060：POST /v1/patch/generate（採用ToDo→unified diff生成→GCS保存）**
-  `./Implementation_details/BE-060.md`
-
-* [ ] **BE-070：POST /v1/report/generate（HTMLレポート生成→GCS保存）**
+* [ ] **BE-070：OralExaminer 雛形（質問生成I/O）**
   `./Implementation_details/BE-070.md`
 
-* [ ] **BE-071：GET /v1/report/:reportId（署名URL返却）**
+* [ ] **BE-071：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
   `./Implementation_details/BE-071.md`
+
+* [ ] **BE-072：PatchService 雛形（generateUnifiedDiff I/O）**
+  `./Implementation_details/BE-072.md`
+
+* [ ] **BE-073：POST /v1/patch/generate（採用ToDo→diff生成→GCS保存）**
+  `./Implementation_details/BE-073.md`
+
+* [ ] **BE-074：ReportService 雛形（renderHtml I/O）**
+  `./Implementation_details/BE-074.md`
+
+* [ ] **BE-075：POST /v1/report/generate（HTML生成→GCS保存）**
+  `./Implementation_details/BE-075.md`
+
+* [ ] **BE-076：GET /v1/report/:reportId（署名URL返却）**
+  `./Implementation_details/BE-076.md`
 
 ---
 
