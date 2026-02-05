@@ -1,8 +1,11 @@
 {
   "name": "back",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "foo": "ts-node foo.ts"
   },
@@ -10,6 +13,10 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.5.0"
+  },
   "devDependencies": {
     "@types/lodash": "^4.17.23",
     "@types/node": "^25.1.0",
