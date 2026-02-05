@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reviewer-zero-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      # frontディレクトリをそのまま共有（ホットリロード対応）
+      - .:/app
+      # node_modulesはコンテナ内に保持（マウントしない）
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    command: npm run dev
