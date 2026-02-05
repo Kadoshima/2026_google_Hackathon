@@ -60,7 +60,7 @@
 
 * [ ] **BE-012：Session 型の作成**
   `./Implementation_details/BE-012.md`
-  担当者: 
+  担当者: 桐生
 
 * [ ] **BE-013：Submission 型の作成**
   `./Implementation_details/BE-013.md`
