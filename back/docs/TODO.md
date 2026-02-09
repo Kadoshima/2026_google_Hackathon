@@ -62,15 +62,15 @@
   `./Implementation_details/BE-012.md`
   担当者: 桐生
 
-* [ ] **BE-013：Submission 型の作成**
+* [x] **BE-013：Submission 型の作成**
   `./Implementation_details/BE-013.md`
   担当者: 萩原
 
-* [ ] **BE-014：Analysis 型の作成**
+* [x] **BE-014：Analysis 型の作成**
   `./Implementation_details/BE-014.md`
   担当者: 桐生
 
-* [ ] **BE-015：ConversationTurn 型の作成**
+* [x] **BE-015：ConversationTurn 型の作成**
   `./Implementation_details/BE-015.md`
   担当者: 
 
