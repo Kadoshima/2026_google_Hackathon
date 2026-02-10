@@ -74,13 +74,13 @@
   `./Implementation_details/BE-015.md`
   担当者: 
 
-* [ ] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
+* [x] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
   `./Implementation_details/BE-016.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-017：共通エラー型（errorレスポンス形）**
   `./Implementation_details/BE-017.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-018：Firestore 初期化（client生成）**
   `./Implementation_details/BE-018.md`
