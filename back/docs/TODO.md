@@ -86,7 +86,7 @@
   `./Implementation_details/BE-018.md`
   担当者: 萩原
 
-* [ ] **BE-019：FirestoreRepo.createSession**
+* [x] **BE-019：FirestoreRepo.createSession**
   `./Implementation_details/BE-019.md`
   担当者: 
 
