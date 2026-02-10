@@ -90,7 +90,7 @@
   `./Implementation_details/BE-019.md`
   担当者: 
 
-* [ ] **BE-020：FirestoreRepo.createSubmission**
+* [x] **BE-020：FirestoreRepo.createSubmission**
   `./Implementation_details/BE-020.md`
   担当者: 
 

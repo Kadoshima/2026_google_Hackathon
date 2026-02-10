@@ -1,5 +1,7 @@
 import { Firestore } from '@google-cloud/firestore'
 import type { RetentionPolicy, Session } from '../domain/types.js'
+import type { Submission } from '../domain/submissions.js'
+import type { InputType } from '../domain/enums.js'
 
 const projectId = process.env.GCP_PROJECT_ID
 const databaseId = process.env.FIRESTORE_DB
@@ -21,6 +23,13 @@ export type CreateSessionInput = {
   domainTag?: string
 }
 
+export type CreateSubmissionInput = {
+  submissionId: string
+  sessionId: string
+  inputType: InputType
+  gcsPathRaw: string
+}
+
 export const createSession = async (
   input: CreateSessionInput
 ): Promise<Session> => {
@@ -38,4 +47,22 @@ export const createSession = async (
 
   await firestore.collection('sessions').doc(input.sessionId).set(session)
   return session
+}
+
+export const createSubmission = async (
+  input: CreateSubmissionInput
+): Promise<Submission> => {
+  const now = new Date().toISOString()
+
+  const submission: Submission = {
+    submissionId: input.submissionId,
+    sessionId: input.sessionId,
+    inputType: input.inputType,
+    gcsPathRaw: input.gcsPathRaw,
+    createdAt: now,
+    status: 'UPLOADED'
+  }
+
+  await firestore.collection('submissions').doc(input.submissionId).set(submission)
+  return submission
 }
