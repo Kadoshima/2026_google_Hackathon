@@ -72,7 +72,7 @@
 
 * [x] **BE-015：ConversationTurn 型の作成**
   `./Implementation_details/BE-015.md`
-  担当者: 
+  担当者: 萩原
 
 * [x] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
   `./Implementation_details/BE-016.md`
