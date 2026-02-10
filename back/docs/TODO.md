@@ -26,15 +26,15 @@
 
 ## B. GCP最小セットアップ（動かすための土台）
 
-* [ ] **INF-001：GCPプロジェクト/サービスアカウント/権限（最低限）の準備**
+* [X] **INF-001：GCPプロジェクト/サービスアカウント/権限（最低限）の準備**
   `./Implementation_details/INF-001.md`
-  担当者: 
+  担当者: 萩原、小川
 
-* [ ] **INF-002：Cloud Storage バケット作成（raw/extract/analysis/reports/patches）**
+* [X] **INF-002：Cloud Storage バケット作成（raw/extract/analysis/reports/patches）**
   `./Implementation_details/INF-002.md`
-  担当者: 
+  担当者:  萩原、小川
 
-* [ ] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
+* [] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
   `./Implementation_details/INF-003.md`
   担当者: 萩原
 
@@ -82,7 +82,7 @@
   `./Implementation_details/BE-017.md`
   担当者: 萩原
 
-* [ ] **BE-018：Firestore 初期化（client生成）**
+* [x] **BE-018：Firestore 初期化（client生成）**
   `./Implementation_details/BE-018.md`
   担当者: 萩原
 
