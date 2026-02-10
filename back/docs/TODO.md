@@ -78,7 +78,7 @@
   `./Implementation_details/BE-016.md`
   担当者: 萩原
 
-* [ ] **BE-017：共通エラー型（errorレスポンス形）**
+* [x] **BE-017：共通エラー型（errorレスポンス形）**
   `./Implementation_details/BE-017.md`
   担当者: 萩原
 
