@@ -84,7 +84,7 @@
 
 * [ ] **BE-018：Firestore 初期化（client生成）**
   `./Implementation_details/BE-018.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-019：FirestoreRepo.createSession**
   `./Implementation_details/BE-019.md`
