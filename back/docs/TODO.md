@@ -218,9 +218,9 @@
   `./Implementation_details/BE-054.md`
   担当者: 萩原
 
-* [ ] **BE-055：LogicSentinel 雛形（I/O定義）**
+* [x] **BE-055：LogicSentinel 雛形（I/O定義）**
   `./Implementation_details/BE-055.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-056：PriorArtCoach 雛形（I/O定義）**
   `./Implementation_details/BE-056.md`
