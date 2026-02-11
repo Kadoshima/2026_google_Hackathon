@@ -222,9 +222,9 @@
   `./Implementation_details/BE-055.md`
   担当者: 萩原
 
-* [ ] **BE-056：PriorArtCoach 雛形（I/O定義）**
+* [x] **BE-056：PriorArtCoach 雛形（I/O定義）**
   `./Implementation_details/BE-056.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-057：Scoring 雛形（metrics算出I/O）**
   `./Implementation_details/BE-057.md`
