@@ -26,15 +26,15 @@
 
 ## B. GCP最小セットアップ（動かすための土台）
 
-* [ ] **INF-001：GCPプロジェクト/サービスアカウント/権限（最低限）の準備**
+* [X] **INF-001：GCPプロジェクト/サービスアカウント/権限（最低限）の準備**
   `./Implementation_details/INF-001.md`
-  担当者: 
+  担当者: 萩原、小川
 
-* [ ] **INF-002：Cloud Storage バケット作成（raw/extract/analysis/reports/patches）**
+* [X] **INF-002：Cloud Storage バケット作成（raw/extract/analysis/reports/patches）**
   `./Implementation_details/INF-002.md`
-  担当者: 
+  担当者:  萩原、小川
 
-* [ ] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
+* [] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
   `./Implementation_details/INF-003.md`
   担当者: 萩原
 
@@ -72,95 +72,95 @@
 
 * [x] **BE-015：ConversationTurn 型の作成**
   `./Implementation_details/BE-015.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
+* [x] **BE-016：ID生成ユーティリティ（sess/sub/ana/upl/rep 等）**
   `./Implementation_details/BE-016.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-017：共通エラー型（errorレスポンス形）**
+* [x] **BE-017：共通エラー型（errorレスポンス形）**
   `./Implementation_details/BE-017.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-018：Firestore 初期化（client生成）**
+* [x] **BE-018：Firestore 初期化（client生成）**
   `./Implementation_details/BE-018.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-019：FirestoreRepo.createSession**
+* [x] **BE-019：FirestoreRepo.createSession**
   `./Implementation_details/BE-019.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-020：FirestoreRepo.createSubmission**
+* [x] **BE-020：FirestoreRepo.createSubmission**
   `./Implementation_details/BE-020.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-021：FirestoreRepo.createAnalysis**
+* [x] **BE-021：FirestoreRepo.createAnalysis**
   `./Implementation_details/BE-021.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-022：FirestoreRepo.updateAnalysisStatus**
+* [x] **BE-022：FirestoreRepo.updateAnalysisStatus**
   `./Implementation_details/BE-022.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-023：FirestoreRepo.setPointers**
+* [x] **BE-023：FirestoreRepo.setPointers**
   `./Implementation_details/BE-023.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-024：FirestoreRepo.setMetrics**
+* [x] **BE-024：FirestoreRepo.setMetrics**
   `./Implementation_details/BE-024.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-025：FirestoreRepo.saveConversationTurn**
+* [x] **BE-025：FirestoreRepo.saveConversationTurn**
   `./Implementation_details/BE-025.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-026：FirestoreRepo.getAnalysis**
+* [x] **BE-026：FirestoreRepo.getAnalysis**
   `./Implementation_details/BE-026.md`
   担当者: 
 
-* [ ] **BE-027：GCS 初期化（client生成）**
+* [x] **BE-027：GCS 初期化（client生成）**
   `./Implementation_details/BE-027.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-028：StorageService.putRawFile**
+* [x] **BE-028：StorageService.putRawFile**
   `./Implementation_details/BE-028.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-029：StorageService.putJson**
+* [x] **BE-029：StorageService.putJson**
   `./Implementation_details/BE-029.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-030：StorageService.getSignedUrl**
+* [x] **BE-030：StorageService.getSignedUrl**
   `./Implementation_details/BE-030.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-031：Cloud Tasks 初期化（client生成）**
+* [x] **BE-031：Cloud Tasks 初期化（client生成）**
   `./Implementation_details/BE-031.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-032：TasksService.enqueueAnalysisTask**
+* [x] **BE-032：TasksService.enqueueAnalysisTask**
   `./Implementation_details/BE-032.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-033：GET /v1/healthz**
+* [x] **BE-033：GET /v1/healthz**
   `./Implementation_details/BE-033.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-034：POST /v1/upload（multipart受理＋metadata parse）**
+* [x] **BE-034：POST /v1/upload（multipart受理＋metadata parse）**
   `./Implementation_details/BE-034.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-035：POST /v1/upload（GCS保存→Firestore記録）**
+* [x] **BE-035：POST /v1/upload（GCS保存→Firestore記録）**
   `./Implementation_details/BE-035.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-036：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
+* [x] **BE-036：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
   `./Implementation_details/BE-036.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-037：GET /v1/analysis/:analysisId（進捗ポーリング）**
+* [x] **BE-037：GET /v1/analysis/:analysisId（進捗ポーリング）**
   `./Implementation_details/BE-037.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 

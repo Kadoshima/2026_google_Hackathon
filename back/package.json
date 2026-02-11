@@ -14,9 +14,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-cloud/firestore": "^8.3.0",
+    "@google-cloud/storage": "^7.19.0",
+    "@google-cloud/tasks": "^6.2.1",
     "@hono/node-server": "^1.13.0",
+    "dotenv": "^17.2.4",
     "hono": "^4.5.0",
-    "shared": "workspace:*"
+    "shared": "file:../shared"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.23",

@@ -5,5 +5,8 @@
     "front",
     "back",
     "shared"
-  ]
+  ],
+  "dependencies": {
+    "dotenv": "^17.2.4"
+  }
 }
