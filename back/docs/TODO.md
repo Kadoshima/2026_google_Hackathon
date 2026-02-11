@@ -206,9 +206,9 @@
   `./Implementation_details/BE-051.md`
   担当者: 萩原
 
-* [ ] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
+* [x] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
   `./Implementation_details/BE-052.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
   `./Implementation_details/BE-053.md`
