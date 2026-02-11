@@ -202,9 +202,9 @@
   `./Implementation_details/BE-050.md`
   担当者: 萩原
 
-* [ ] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
+* [x] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
   `./Implementation_details/BE-051.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
   `./Implementation_details/BE-052.md`
