@@ -50,15 +50,10 @@ const claimOutputSchema: OutputSchema<ClaimOutput> = {
 
     const claims = claimsRaw.map((item, index) => {
       const claim = asRecord(item, `claims[${index}]`)
-      const confidence = claim.confidence
-      if (
-        confidence !== undefined &&
-        confidence !== 'low' &&
-        confidence !== 'medium' &&
-        confidence !== 'high'
-      ) {
-        throw new Error(`claims[${index}].confidence is invalid`)
-      }
+      const confidence = parseConfidence(
+        claim.confidence,
+        `claims[${index}].confidence`
+      )
 
       return {
         claimId: asString(claim.claimId, `claims[${index}].claimId`),
@@ -67,7 +62,7 @@ const claimOutputSchema: OutputSchema<ClaimOutput> = {
           claim.paragraphIds,
           `claims[${index}].paragraphIds`
         ),
-        ...(confidence ? { confidence } : {})
+        ...(confidence !== undefined ? { confidence } : {})
       }
     })
 
@@ -161,4 +156,13 @@ const asStringArray = (value: unknown, fieldName: string): string[] => {
     }
   }
   return value
+}
+
+const parseConfidence = (
+  value: unknown,
+  fieldName: string
+): 'low' | 'medium' | 'high' | undefined => {
+  if (value === undefined) return undefined
+  if (value === 'low' || value === 'medium' || value === 'high') return value
+  throw new Error(`${fieldName} is invalid`)
 }
