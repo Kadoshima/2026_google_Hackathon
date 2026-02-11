@@ -114,53 +114,53 @@
   `./Implementation_details/BE-025.md`
   担当者: 萩原
 
-* [ ] **BE-026：FirestoreRepo.getAnalysis**
+* [x] **BE-026：FirestoreRepo.getAnalysis**
   `./Implementation_details/BE-026.md`
   担当者: 
 
-* [ ] **BE-027：GCS 初期化（client生成）**
+* [x] **BE-027：GCS 初期化（client生成）**
   `./Implementation_details/BE-027.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-028：StorageService.putRawFile**
+* [x] **BE-028：StorageService.putRawFile**
   `./Implementation_details/BE-028.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-029：StorageService.putJson**
+* [x] **BE-029：StorageService.putJson**
   `./Implementation_details/BE-029.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-030：StorageService.getSignedUrl**
+* [x] **BE-030：StorageService.getSignedUrl**
   `./Implementation_details/BE-030.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-031：Cloud Tasks 初期化（client生成）**
+* [x] **BE-031：Cloud Tasks 初期化（client生成）**
   `./Implementation_details/BE-031.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-032：TasksService.enqueueAnalysisTask**
+* [x] **BE-032：TasksService.enqueueAnalysisTask**
   `./Implementation_details/BE-032.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-033：GET /v1/healthz**
+* [x] **BE-033：GET /v1/healthz**
   `./Implementation_details/BE-033.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-034：POST /v1/upload（multipart受理＋metadata parse）**
+* [x] **BE-034：POST /v1/upload（multipart受理＋metadata parse）**
   `./Implementation_details/BE-034.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-035：POST /v1/upload（GCS保存→Firestore記録）**
+* [x] **BE-035：POST /v1/upload（GCS保存→Firestore記録）**
   `./Implementation_details/BE-035.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-036：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
+* [x] **BE-036：POST /v1/analyze（analysis作成→Cloud Tasks投入）**
   `./Implementation_details/BE-036.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-037：GET /v1/analysis/:analysisId（進捗ポーリング）**
+* [x] **BE-037：GET /v1/analysis/:analysisId（進捗ポーリング）**
   `./Implementation_details/BE-037.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 
