@@ -1,5 +1,5 @@
 import { Firestore } from '@google-cloud/firestore'
-import type { RetentionPolicy, Session } from '../domain/types.js'
+import type { Analysis, RetentionPolicy, Session } from '../domain/types.js'
 import type { Submission } from '../domain/submissions.js'
 import type { InputType } from '../domain/enums.js'
 
@@ -28,6 +28,12 @@ export type CreateSubmissionInput = {
   sessionId: string
   inputType: InputType
   gcsPathRaw: string
+}
+
+export type CreateAnalysisInput = {
+    analysisId: string
+    sessionId: string
+    submissionId: string
 }
 
 export const createSession = async (
@@ -65,4 +71,21 @@ export const createSubmission = async (
 
   await firestore.collection('submissions').doc(input.submissionId).set(submission)
   return submission
+}
+
+export const createAnalysis = async (
+  input: CreateAnalysisInput
+): Promise<Analysis> => {
+
+  const analysis: Analysis = {
+    analysisId: input.analysisId,
+    sessionId: input.sessionId,
+    submissionId: input.submissionId,
+    status: 'QUEUED',
+    progress: 0
+  }
+
+  await firestore.collection('analyses').doc(input.analysisId).set(analysis)
+  return analysis
+
 }
