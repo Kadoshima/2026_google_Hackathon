@@ -226,9 +226,9 @@
   `./Implementation_details/BE-056.md`
   担当者: 萩原
 
-* [ ] **BE-057：Scoring 雛形（metrics算出I/O）**
+* [x] **BE-057：Scoring 雛形（metrics算出I/O）**
   `./Implementation_details/BE-057.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 
