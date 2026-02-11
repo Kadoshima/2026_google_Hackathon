@@ -1,5 +1,14 @@
 import { Firestore } from '@google-cloud/firestore'
-import type { Analysis, RetentionPolicy, Session, AnalysisError } from '../domain/types.js'
+import type {
+  Analysis,
+  RetentionPolicy,
+  Session,
+  AnalysisError,
+  AnalysisPointers,
+  AnalysisMetrics,
+  ConversationTurn,
+  ConversationRefs
+} from '../domain/types.js'
 import type { Submission } from '../domain/submissions.js'
 import type { InputType, AnalysisStatus, AnalysisStep } from '../domain/enums.js'
 
@@ -42,6 +51,29 @@ export type UpdateAnalysisStatusInput = {
   progress?: number
   step?: AnalysisStep
   error?: AnalysisError
+}
+
+export type SetPointersInput = {
+  analysisId: string
+  gcsExtractJson?: string
+  gcsAnalysisJson?: string
+  gcsReportHtml?: string
+}
+
+export type SetMetricsInput = {
+  analysisId: string
+  noEvidenceClaimsCount?: number
+  weakEvidenceClaimsCount?: number
+  specificityLackCount?: number
+}
+
+export type SaveConversationTurnInput = {
+  analysisId: string
+  turnId: string
+  role: ConversationTurn['role']
+  type: ConversationTurn['type']
+  content: string
+  refs?: ConversationRefs
 }
 
 export const createSession = async (
@@ -109,4 +141,80 @@ export const updateAnalysisStatus = async (
   if (input.error !== undefined) patch.error = input.error
 
   await firestore.collection('analyses').doc(input.analysisId).update(patch)
+}
+
+export const setPointers = async (input: SetPointersInput): Promise<void> => {
+  const analysisRef = firestore.collection('analyses').doc(input.analysisId)
+  const snapshot = await analysisRef.get()
+
+  const currentPointers: AnalysisPointers = snapshot.exists
+    ? ((snapshot.data()?.pointers as AnalysisPointers | undefined) ?? {})
+    : {}
+
+  const pointers: AnalysisPointers = {
+    ...currentPointers,
+    ...(input.gcsExtractJson ? { gcsExtractJson: input.gcsExtractJson } : {}),
+    ...(input.gcsAnalysisJson ? { gcsAnalysisJson: input.gcsAnalysisJson } : {}),
+    ...(input.gcsReportHtml ? { gcsReportHtml: input.gcsReportHtml } : {})
+  }
+
+  await analysisRef.set(
+    {
+      pointers,
+      updatedAt: new Date().toISOString()
+    },
+    { merge: true }
+  )
+}
+
+export const setMetrics = async (input: SetMetricsInput): Promise<void> => {
+  const analysisRef = firestore.collection('analyses').doc(input.analysisId)
+  const snapshot = await analysisRef.get()
+
+  const currentMetrics: AnalysisMetrics = snapshot.exists
+    ? ((snapshot.data()?.metrics as AnalysisMetrics | undefined) ?? {})
+    : {}
+
+  const metrics: AnalysisMetrics = {
+    ...currentMetrics,
+    ...(input.noEvidenceClaimsCount !== undefined
+      ? { noEvidenceClaimsCount: input.noEvidenceClaimsCount }
+      : {}),
+    ...(input.weakEvidenceClaimsCount !== undefined
+      ? { weakEvidenceClaimsCount: input.weakEvidenceClaimsCount }
+      : {}),
+    ...(input.specificityLackCount !== undefined
+      ? { specificityLackCount: input.specificityLackCount }
+      : {})
+  }
+
+  await analysisRef.set(
+    {
+      metrics,
+      updatedAt: new Date().toISOString()
+    },
+    { merge: true }
+  )
+}
+
+export const saveConversationTurn = async (
+  input: SaveConversationTurnInput
+): Promise<ConversationTurn> => {
+  const turn: ConversationTurn = {
+    turnId: input.turnId,
+    role: input.role,
+    type: input.type,
+    content: input.content,
+    ...(input.refs ? { refs: input.refs } : {}),
+    createdAt: new Date().toISOString()
+  }
+
+  await firestore
+    .collection('analyses')
+    .doc(input.analysisId)
+    .collection('conversations')
+    .doc(input.turnId)
+    .set(turn)
+
+  return turn
 }

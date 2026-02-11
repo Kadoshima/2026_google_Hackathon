@@ -98,19 +98,19 @@
   `./Implementation_details/BE-021.md`
   担当者: 萩原
 
-* [ ] **BE-022：FirestoreRepo.updateAnalysisStatus**
+* [x] **BE-022：FirestoreRepo.updateAnalysisStatus**
   `./Implementation_details/BE-022.md`
   担当者: 萩原
 
-* [ ] **BE-023：FirestoreRepo.setPointers**
+* [x] **BE-023：FirestoreRepo.setPointers**
   `./Implementation_details/BE-023.md`
   担当者: 
 
-* [ ] **BE-024：FirestoreRepo.setMetrics**
+* [x] **BE-024：FirestoreRepo.setMetrics**
   `./Implementation_details/BE-024.md`
   担当者: 
 
-* [ ] **BE-025：FirestoreRepo.saveConversationTurn**
+* [x] **BE-025：FirestoreRepo.saveConversationTurn**
   `./Implementation_details/BE-025.md`
   担当者: 
 
