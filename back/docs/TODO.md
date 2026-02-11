@@ -210,9 +210,9 @@
   `./Implementation_details/BE-052.md`
   担当者: 萩原
 
-* [ ] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
+* [x] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
   `./Implementation_details/BE-053.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-054：EvidenceAuditor 雛形（I/O定義）**
   `./Implementation_details/BE-054.md`
