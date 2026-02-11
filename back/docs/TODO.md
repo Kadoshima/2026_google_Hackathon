@@ -198,9 +198,9 @@
 
 ## E. LLM接続（Vertex AI）＋解析パイプライン（必殺技まで）
 
-* [ ] **BE-050：Vertex AIクライアント雛形（runPrompt/timeout/retry）**
+* [x] **BE-050：Vertex AIクライアント雛形（runPrompt/timeout/retry）**
   `./Implementation_details/BE-050.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
   `./Implementation_details/BE-051.md`
