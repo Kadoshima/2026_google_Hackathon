@@ -1,7 +1,7 @@
 import { Firestore } from '@google-cloud/firestore'
-import type { Analysis, RetentionPolicy, Session } from '../domain/types.js'
+import type { Analysis, RetentionPolicy, Session, AnalysisError } from '../domain/types.js'
 import type { Submission } from '../domain/submissions.js'
-import type { InputType } from '../domain/enums.js'
+import type { InputType, AnalysisStatus, AnalysisStep } from '../domain/enums.js'
 
 const projectId = process.env.GCP_PROJECT_ID
 const databaseId = process.env.FIRESTORE_DB
@@ -31,9 +31,17 @@ export type CreateSubmissionInput = {
 }
 
 export type CreateAnalysisInput = {
-    analysisId: string
-    sessionId: string
-    submissionId: string
+  analysisId: string
+  sessionId: string
+  submissionId: string
+}
+
+export type UpdateAnalysisStatusInput = {
+  analysisId: string
+  status?: AnalysisStatus
+  progress?: number
+  step?: AnalysisStep
+  error?: AnalysisError
 }
 
 export const createSession = async (
@@ -76,7 +84,6 @@ export const createSubmission = async (
 export const createAnalysis = async (
   input: CreateAnalysisInput
 ): Promise<Analysis> => {
-
   const analysis: Analysis = {
     analysisId: input.analysisId,
     sessionId: input.sessionId,
@@ -87,5 +94,19 @@ export const createAnalysis = async (
 
   await firestore.collection('analyses').doc(input.analysisId).set(analysis)
   return analysis
+}
 
+export const updateAnalysisStatus = async (
+  input: UpdateAnalysisStatusInput
+): Promise<void> => {
+  const patch: Record<string, unknown> = {
+    updatedAt: new Date().toISOString()
+  }
+
+  if (input.status !== undefined) patch.status = input.status
+  if (input.progress !== undefined) patch.progress = input.progress
+  if (input.step !== undefined) patch.step = input.step
+  if (input.error !== undefined) patch.error = input.error
+
+  await firestore.collection('analyses').doc(input.analysisId).update(patch)
 }

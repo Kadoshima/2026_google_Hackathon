@@ -88,19 +88,19 @@
 
 * [x] **BE-019：FirestoreRepo.createSession**
   `./Implementation_details/BE-019.md`
-  担当者: 
+  担当者: 萩原
 
 * [x] **BE-020：FirestoreRepo.createSubmission**
   `./Implementation_details/BE-020.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-021：FirestoreRepo.createAnalysis**
+* [x] **BE-021：FirestoreRepo.createAnalysis**
   `./Implementation_details/BE-021.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-022：FirestoreRepo.updateAnalysisStatus**
   `./Implementation_details/BE-022.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-023：FirestoreRepo.setPointers**
   `./Implementation_details/BE-023.md`

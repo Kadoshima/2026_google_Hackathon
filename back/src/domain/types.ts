@@ -43,6 +43,7 @@ export type Analysis = {
   error?: AnalysisError
   pointers?: AnalysisPointers
   metrics?: AnalysisMetrics
+  updatedAt?: Date | string
 }
 
 export type ConversationRefs = {
