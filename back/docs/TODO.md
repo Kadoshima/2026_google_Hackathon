@@ -104,15 +104,15 @@
 
 * [x] **BE-023：FirestoreRepo.setPointers**
   `./Implementation_details/BE-023.md`
-  担当者: 
+  担当者: 萩原
 
 * [x] **BE-024：FirestoreRepo.setMetrics**
   `./Implementation_details/BE-024.md`
-  担当者: 
+  担当者: 萩原
 
 * [x] **BE-025：FirestoreRepo.saveConversationTurn**
   `./Implementation_details/BE-025.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-026：FirestoreRepo.getAnalysis**
   `./Implementation_details/BE-026.md`
