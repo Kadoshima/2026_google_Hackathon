@@ -214,9 +214,9 @@
   `./Implementation_details/BE-053.md`
   担当者: 萩原
 
-* [ ] **BE-054：EvidenceAuditor 雛形（I/O定義）**
+* [x] **BE-054：EvidenceAuditor 雛形（I/O定義）**
   `./Implementation_details/BE-054.md`
-  担当者: 
+  担当者: 萩原
 
 * [ ] **BE-055：LogicSentinel 雛形（I/O定義）**
   `./Implementation_details/BE-055.md`
