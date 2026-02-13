@@ -80,6 +80,10 @@ export type GetAnalysisInput = {
     analysisId: string
 }
 
+export type GetSessionInput = {
+  sessionId: string
+}
+
 export const createSession = async (
   input: CreateSessionInput
 ): Promise<Session> => {
@@ -233,4 +237,16 @@ export const getAnalysis = async (
     }
 
     return snap.data() as Analysis
+}
+
+export const getSession = async (
+  input: GetSessionInput
+): Promise<Session | null> => {
+  const snap = await firestore.collection('sessions').doc(input.sessionId).get()
+
+  if (!snap.exists) {
+    return null
+  }
+
+  return snap.data() as Session
 }

@@ -77,8 +77,7 @@ async function defaultVertexTransport(
       ],
       generationConfig: {
         temperature: request.temperature
-      },
-      responseMimeType: 'application/json'
+      }
     }),
     signal
   })
