@@ -1,13 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import path from 'node:path'
 import { AppError, ErrorCodes } from '../utils/errors.js'
 import { Storage } from '@google-cloud/storage'
 
 const storageProjectId = process.env.GCP_PROJECT_ID
 const bucketName = process.env.BUCKET_NAME
 
-const DEFAULT_LOCAL_ROOT = '/tmp/reviewer-zero-storage'
-const DEFAULT_BUCKET_NAME = 'local-bucket'
 const DEFAULT_SIGNED_URL_TTL_SECONDS = 3600
 
 const assertSafeObjectPath = (objectPath: string): string => {
@@ -24,12 +20,8 @@ const assertSafeObjectPath = (objectPath: string): string => {
   return normalized
 }
 
-const toSignedUrlExpiry = (ttlSeconds: number): string =>
-  new Date(Date.now() + ttlSeconds * 1000).toISOString()
-
 type StorageServiceOptions = {
   bucketName?: string
-  localRoot?: string
 }
 
 export type PutRawFileInput = {
@@ -47,11 +39,17 @@ export type PutJsonInput = {
 
 export class StorageService {
   private readonly bucketName: string
-  private readonly localRoot: string
+  private readonly storage: Storage
 
   constructor(options: StorageServiceOptions = {}) {
-    this.bucketName = options.bucketName ?? process.env.BUCKET_NAME ?? DEFAULT_BUCKET_NAME
-    this.localRoot = options.localRoot ?? process.env.LOCAL_STORAGE_ROOT ?? DEFAULT_LOCAL_ROOT
+    this.bucketName = options.bucketName ?? process.env.BUCKET_NAME ?? ''
+    if (!this.bucketName) {
+      throw new Error('BUCKET_NAME is required')
+    }
+
+    this.storage = new Storage({
+      ...(storageProjectId ? { projectId: storageProjectId } : {})
+    })
   }
 
   toGsPath(objectPath: string): string {
@@ -61,31 +59,47 @@ export class StorageService {
   async putRawFile(
     objectPath: string,
     content: Buffer | Uint8Array | string,
-    _contentType?: string
+    contentType?: string
   ): Promise<string> {
     const normalizedPath = assertSafeObjectPath(objectPath)
-    const targetPath = this.resolveLocalPath(normalizedPath)
-    await mkdir(path.dirname(targetPath), { recursive: true })
-    await writeFile(targetPath, content)
+    await this.storage.bucket(this.bucketName).file(normalizedPath).save(content, {
+      ...(contentType ? { contentType } : {}),
+      resumable: false
+    })
     return this.toGsPath(normalizedPath)
   }
 
   async putJson(objectPath: string, value: unknown): Promise<string> {
     const normalizedPath = assertSafeObjectPath(objectPath)
-    const targetPath = this.resolveLocalPath(normalizedPath)
-    await mkdir(path.dirname(targetPath), { recursive: true })
-    await writeFile(targetPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+    await this.storage
+      .bucket(this.bucketName)
+      .file(normalizedPath)
+      .save(`${JSON.stringify(value, null, 2)}\n`, {
+        contentType: 'application/json',
+        resumable: false
+      })
     return this.toGsPath(normalizedPath)
+  }
+
+  private isGcsNotFound(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false
+    if ('code' in error && (error as { code?: unknown }).code === 404) return true
+    return false
   }
 
   async readAsBuffer(pathOrGs: string): Promise<Buffer> {
     const objectPath = this.toObjectPath(pathOrGs)
-    const targetPath = this.resolveLocalPath(objectPath)
 
     try {
-      return await readFile(targetPath)
+      const [buffer] = await this.storage.bucket(this.bucketName).file(objectPath).download()
+      return buffer
     } catch (error) {
-      throw new AppError(ErrorCodes.STORAGE_NOT_FOUND, 'storage object not found', 404, {
+      if (this.isGcsNotFound(error)) {
+        throw new AppError(ErrorCodes.STORAGE_NOT_FOUND, 'storage object not found', 404, {
+          objectPath
+        })
+      }
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, 'failed to read storage object', 500, {
         objectPath,
         reason: error instanceof Error ? error.message : 'unknown'
       })
@@ -101,8 +115,12 @@ export class StorageService {
     const objectPath = this.toObjectPath(pathOrGs)
     const ttl =
       ttlSeconds ?? Number(process.env.SIGNED_URL_TTL_SECONDS ?? DEFAULT_SIGNED_URL_TTL_SECONDS)
-    const encodedPath = encodeURIComponent(objectPath)
-    return `https://storage.local/${this.bucketName}/${encodedPath}?expires=${toSignedUrlExpiry(ttl)}`
+    const [signedUrl] = await this.storage.bucket(this.bucketName).file(objectPath).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + ttl * 1000,
+      version: 'v4'
+    })
+    return signedUrl
   }
 
   private toObjectPath(pathOrGs: string): string {
@@ -124,15 +142,6 @@ export class StorageService {
     }
 
     return assertSafeObjectPath(pathOrGs)
-  }
-
-  private resolveLocalPath(objectPath: string): string {
-    const fullPath = path.resolve(this.localRoot, objectPath)
-    const root = path.resolve(this.localRoot)
-    if (!fullPath.startsWith(`${root}${path.sep}`) && fullPath !== root) {
-      throw new AppError(ErrorCodes.INVALID_INPUT, 'unsafe storage path', 400, { objectPath })
-    }
-    return fullPath
   }
 }
 
