@@ -1,100 +1,115 @@
-'use client';
+'use client'
 
-import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useDropzone } from 'react-dropzone';
-import { useMutation } from '@tanstack/react-query';
-import { uploadApi, sessionApi } from '@/api';
-import { useAppStore } from '@/store/useAppStore';
-import { Button, Card, CardHeader, ProgressBar, Badge } from '@/components/ui';
-import { Upload, File, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { cn, formatFileSize } from '@/lib/utils';
+import { useCallback, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useDropzone } from 'react-dropzone'
+import { useMutation } from '@tanstack/react-query'
+import { AlertCircle, CheckCircle, File, Upload, X } from 'lucide-react'
+import type { AnalyzeRequest, UploadMetadata } from 'shared'
+import { analysisApi, uploadApi } from '@/api'
+import { Button, Card, CardHeader, ProgressBar } from '@/components/ui'
+import { cn, formatFileSize } from '@/lib/utils'
+import { useAppStore } from '@/store/useAppStore'
+
+type UploadOptions = {
+  language: 'ja' | 'en'
+  saveEnabled: boolean
+  domainTag: string
+}
 
 export default function NewSessionPage() {
-  const router = useRouter();
-  const { ensureClientToken, addSession } = useAppStore();
-  const [file, setFile] = useState<File | null>(null);
-  const [options, setOptions] = useState({
-    language: 'ja' as 'ja' | 'en',
+  const router = useRouter()
+  const { ensureClientToken, addSession } = useAppStore()
+  const [file, setFile] = useState<File | null>(null)
+  const [options, setOptions] = useState<UploadOptions>({
+    language: 'ja',
     saveEnabled: true,
-    field: '',
-  });
+    domainTag: ''
+  })
 
-  // Upload mutation
-  const uploadMutation = useMutation({
+  const createSessionMutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error('ファイルが選択されていません');
-      
-      ensureClientToken();
-      
-      const response = await uploadApi.upload({
-        file,
-        metadata: {
-          language: options.language,
-          save_enabled: options.saveEnabled,
-          field: options.field || undefined,
-        },
-      });
-      
-      return response;
+      if (!file) throw new Error('file is required')
+
+      ensureClientToken()
+
+      const metadata: UploadMetadata = {
+        language: options.language,
+        ...(options.domainTag ? { domainTag: options.domainTag } : {}),
+        retentionPolicy: options.saveEnabled
+          ? { mode: 'SAVE', ttlHours: 24 * 30 }
+          : { mode: 'NO_SAVE' }
+      }
+
+      const upload = await uploadApi.upload({ file, metadata })
+      const analyzeRequest: AnalyzeRequest = {
+        session_id: upload.session_id,
+        submission_id: upload.submission_id
+      }
+      const analyze = await analysisApi.start(analyzeRequest)
+
+      return { upload, analyze }
     },
-    onSuccess: (data) => {
-      // Create session entry
-      const session = {
-        session_id: data.session_id,
-        client_token: localStorage.getItem('client_session_token') || '',
-        title: file?.name.replace(/\.[^/.]+$/, ''),
-        status: 'analyzing' as const,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+    onSuccess: ({ upload, analyze }) => {
+      const title = file?.name.replace(/\.[^/.]+$/, '') || 'Untitled'
+      const now = new Date().toISOString()
+      const clientToken =
+        localStorage.getItem('client_session_token') || ensureClientToken()
+
+      addSession({
+        session_id: upload.session_id,
+        client_token: clientToken,
+        title,
+        analysis_id: analyze.analysis_id,
+        status: 'analyzing',
+        created_at: now,
+        updated_at: now,
         submission: {
-          submission_id: data.submission_id,
-          upload_id: data.upload_id,
+          submission_id: upload.submission_id,
+          upload_id: upload.upload_id,
           filename: file?.name || '',
-          file_type: (file?.name.endsWith('.pdf') ? 'pdf' : 'zip') as 'pdf' | 'zip',
+          file_type: file?.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'zip'
         },
         settings: {
           save_enabled: options.saveEnabled,
-          retention_days: 30,
-          language: options.language,
-        },
-      };
-      
-      addSession(session);
-      router.push(`/session/${data.session_id}`);
-    },
-  });
+          retention_days: options.saveEnabled ? 30 : 1,
+          language: options.language
+        }
+      })
 
-  // Dropzone setup
+      router.push(`/session/${upload.session_id}`)
+    }
+  })
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
+      setFile(acceptedFiles[0])
     }
-  }, []);
+  }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/zip': ['.zip'],
-      'application/pdf': ['.pdf'],
+      'application/pdf': ['.pdf']
     },
     maxFiles: 1,
-    maxSize: 50 * 1024 * 1024, // 50MB
-  });
+    maxSize: 50 * 1024 * 1024
+  })
 
-  const handleSubmit = () => {
-    uploadMutation.mutate();
-  };
+  const submitProgress = useMemo(() => {
+    if (!createSessionMutation.isPending) return 0
+    return 65
+  }, [createSessionMutation.isPending])
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader
           title="新規査読セッション"
-          subtitle="LaTeXプロジェクト（ZIP）またはPDFファイルをアップロードしてください"
+          subtitle="LaTeX ZIP または PDF をアップロードして解析を開始します"
         />
 
-        {/* Dropzone */}
         <div
           {...getRootProps()}
           className={cn(
@@ -109,15 +124,10 @@ export default function NewSessionPage() {
           <p className="text-lg font-medium text-gray-900 mb-2">
             {isDragActive ? 'ファイルをドロップしてください' : 'ファイルをドラッグ＆ドロップ'}
           </p>
-          <p className="text-sm text-gray-500">
-            または クリックしてファイルを選択
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            対応形式: .zip, .pdf (最大 50MB)
-          </p>
+          <p className="text-sm text-gray-500">またはクリックしてファイルを選択</p>
+          <p className="text-xs text-gray-400 mt-2">対応形式: .zip, .pdf（最大50MB）</p>
         </div>
 
-        {/* File preview */}
         {file && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between">
@@ -131,6 +141,7 @@ export default function NewSessionPage() {
               <button
                 onClick={() => setFile(null)}
                 className="p-2 hover:bg-gray-200 rounded-full"
+                aria-label="clear file"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -138,7 +149,6 @@ export default function NewSessionPage() {
           </div>
         )}
 
-        {/* Options */}
         <div className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -146,7 +156,7 @@ export default function NewSessionPage() {
             </label>
             <div className="flex gap-2">
               <button
-                onClick={() => setOptions({ ...options, language: 'ja' })}
+                onClick={() => setOptions((prev) => ({ ...prev, language: 'ja' }))}
                 className={cn(
                   'px-4 py-2 rounded-md text-sm font-medium transition-colors',
                   options.language === 'ja'
@@ -157,7 +167,7 @@ export default function NewSessionPage() {
                 日本語
               </button>
               <button
-                onClick={() => setOptions({ ...options, language: 'en' })}
+                onClick={() => setOptions((prev) => ({ ...prev, language: 'en' }))}
                 className={cn(
                   'px-4 py-2 rounded-md text-sm font-medium transition-colors',
                   options.language === 'en'
@@ -171,80 +181,73 @@ export default function NewSessionPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              分野（任意）
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">分野タグ（任意）</label>
             <input
               type="text"
-              value={options.field}
-              onChange={(e) => setOptions({ ...options, field: e.target.value })}
-              placeholder="例: 情報工学、物理学、生物学..."
+              value={options.domainTag}
+              onChange={(e) =>
+                setOptions((prev) => ({ ...prev, domainTag: e.target.value }))
+              }
+              placeholder="例: ai, systems, ml"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="saveEnabled"
               checked={options.saveEnabled}
-              onChange={(e) => setOptions({ ...options, saveEnabled: e.target.checked })}
-              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              onChange={(e) =>
+                setOptions((prev) => ({ ...prev, saveEnabled: e.target.checked }))
+              }
+              className="w-4 h-4 text-indigo-600 border-gray-300 rounded"
             />
-            <label htmlFor="saveEnabled" className="text-sm text-gray-700">
-              解析結果を保存する（プライバシー設定で変更可能）
-            </label>
-          </div>
+            <span className="text-sm text-gray-700">解析結果を保存する（設定画面で変更可）</span>
+          </label>
         </div>
 
-        {/* Privacy notice */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <div className="flex gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">プライバシーについて</p>
-              <p>
-                アップロードされたファイルは解析のためにサーバーに送信されます。
-                保存設定がOFFの場合、解析完了後に自動的に削除されます。
-              </p>
-            </div>
+            <p className="text-sm text-blue-800">
+              保存OFFの場合は `NO_SAVE` ポリシーで送信され、保持期間を最小化します。
+            </p>
           </div>
         </div>
 
-        {/* Submit button */}
         <div className="mt-6">
-          {uploadMutation.isPending && (
+          {createSessionMutation.isPending && (
             <div className="mb-4">
-              <ProgressBar progress={uploadMutation.isPending ? 50 : 0} />
+              <ProgressBar progress={submitProgress} />
               <p className="text-sm text-gray-600 text-center mt-2">
-                アップロード中...
+                アップロードと解析ジョブ作成を実行中...
               </p>
             </div>
           )}
 
-          {uploadMutation.isError && (
+          {createSessionMutation.isError && (
             <div className="mb-4 p-4 bg-red-50 rounded-lg">
               <div className="flex items-center gap-2 text-red-800">
                 <AlertCircle className="w-5 h-5" />
                 <p className="text-sm">
-                  アップロードに失敗しました。もう一度お試しください。
+                  処理に失敗しました: {createSessionMutation.error.message}
                 </p>
               </div>
             </div>
           )}
 
           <Button
-            onClick={handleSubmit}
-            disabled={!file || uploadMutation.isPending}
-            isLoading={uploadMutation.isPending}
+            onClick={() => createSessionMutation.mutate()}
+            disabled={!file || createSessionMutation.isPending}
+            isLoading={createSessionMutation.isPending}
             className="w-full"
             size="lg"
           >
-            {!uploadMutation.isPending && <CheckCircle className="w-5 h-5 mr-2" />}
+            {!createSessionMutation.isPending && <CheckCircle className="w-5 h-5 mr-2" />}
             解析を開始する
           </Button>
         </div>
       </Card>
     </div>
-  );
+  )
 }

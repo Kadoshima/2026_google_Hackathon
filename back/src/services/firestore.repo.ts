@@ -1,12 +1,12 @@
 import { FieldValue, Firestore } from '@google-cloud/firestore'
-import { AnalysisStatus } from '../domain/enums.js'
-import type { InputType } from '../domain/enums.js'
+import type { InputType, AnalysisStatus, AnalysisStep } from '../domain/enums.js'
 import type {
   Analysis,
   AnalysisError,
   AnalysisMetrics,
   AnalysisPointers,
   ConversationTurn,
+  ConversationRefs,
   RetentionPolicy,
   Session
 } from '../domain/types.js'

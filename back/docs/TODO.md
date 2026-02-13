@@ -198,67 +198,67 @@
 
 ## E. LLM接続（Vertex AI）＋解析パイプライン（必殺技まで）
 
-* [ ] **BE-050：Vertex AIクライアント雛形（runPrompt/timeout/retry）**
+* [x] **BE-050：Vertex AIクライアント雛形（runPrompt/timeout/retry）**
   `./Implementation_details/BE-050.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
+* [x] **BE-051：プロンプト雛形（Claim/Evidence/Oral）**
   `./Implementation_details/BE-051.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
+* [x] **BE-052：LLM出力JSONスキーマ雛形（Zod/TypeBox）**
   `./Implementation_details/BE-052.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
+* [x] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
   `./Implementation_details/BE-053.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-054：EvidenceAuditor 雛形（I/O定義）**
+* [x] **BE-054：EvidenceAuditor 雛形（I/O定義）**
   `./Implementation_details/BE-054.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-055：LogicSentinel 雛形（I/O定義）**
+* [x] **BE-055：LogicSentinel 雛形（I/O定義）**
   `./Implementation_details/BE-055.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-056：PriorArtCoach 雛形（I/O定義）**
+* [x] **BE-056：PriorArtCoach 雛形（I/O定義）**
   `./Implementation_details/BE-056.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **BE-057：Scoring 雛形（metrics算出I/O）**
+* [x] **BE-057：Scoring 雛形（metrics算出I/O）**
   `./Implementation_details/BE-057.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 
 ## F. Oral Defense（口頭試問API）＋Patch（diff）＋Report
 
-* [ ] **BE-070：OralExaminer 雛形（質問生成I/O）**
+* [x] **BE-070：OralExaminer 雛形（質問生成I/O）**
   `./Implementation_details/BE-070.md`
   担当者: 
 
-* [ ] **BE-071：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
+* [x] **BE-071：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
   `./Implementation_details/BE-071.md`
   担当者: 
 
-* [ ] **BE-072：PatchService 雛形（generateUnifiedDiff I/O）**
+* [x] **BE-072：PatchService 雛形（generateUnifiedDiff I/O）**
   `./Implementation_details/BE-072.md`
   担当者: 
 
-* [ ] **BE-073：POST /v1/patch/generate（採用ToDo→diff生成→GCS保存）**
+* [x] **BE-073：POST /v1/patch/generate（採用ToDo→diff生成→GCS保存）**
   `./Implementation_details/BE-073.md`
   担当者: 
 
-* [ ] **BE-074：ReportService 雛形（renderHtml I/O）**
+* [x] **BE-074：ReportService 雛形（renderHtml I/O）**
   `./Implementation_details/BE-074.md`
   担当者: 
 
-* [ ] **BE-075：POST /v1/report/generate（HTML生成→GCS保存）**
+* [x] **BE-075：POST /v1/report/generate（HTML生成→GCS保存）**
   `./Implementation_details/BE-075.md`
   担当者: 
 
-* [ ] **BE-076：GET /v1/report/:reportId（署名URL返却）**
+* [x] **BE-076：GET /v1/report/:reportId（署名URL返却）**
   `./Implementation_details/BE-076.md`
   担当者: 
 
@@ -266,49 +266,49 @@
 
 ## G. Frontend SPA（アップロード→解析→体験の核）
 
-* [ ] **FE-010：SPAルーティング骨格（/new, /session/:id, /settings, /demo）**
+* [x] **FE-010：SPAルーティング骨格（/new, /session/:id, /settings, /demo）**
   `./Implementation_details/FE-010.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-011：UploadPage（ZIP/PDF DnD + オプション + 進捗）**
+* [x] **FE-011：UploadPage（ZIP/PDF DnD + オプション + 進捗）**
   `./Implementation_details/FE-011.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-012：SessionPage（解析進捗ポーリング：READYまで）**
+* [x] **FE-012：SessionPage（解析進捗ポーリング：READYまで）**
   `./Implementation_details/FE-012.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-020：SummaryTab（致命傷Top3 + metrics Before/After枠）**
+* [x] **FE-020：SummaryTab（致命傷Top3 + metrics Before/After枠）**
   `./Implementation_details/FE-020.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-021：EvidenceMapTab（テーブル + ClaimDetailDrawer）**
+* [x] **FE-021：EvidenceMapTab（テーブル + ClaimDetailDrawer）**
   `./Implementation_details/FE-021.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-022：OralDefenseTab（チャットUI：質問→回答→ドラフト採用）**
+* [x] **FE-022：OralDefenseTab（チャットUI：質問→回答→ドラフト採用）**
   `./Implementation_details/FE-022.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-023：TodoPatchTab（Top10 + DiffViewer + 採用/却下）**
+* [x] **FE-023：TodoPatchTab（Top10 + DiffViewer + 採用/却下）**
   `./Implementation_details/FE-023.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-024：ReportTab（生成→閲覧→DL）**
+* [x] **FE-024：ReportTab（生成→閲覧→DL）**
   `./Implementation_details/FE-024.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-030：PreflightTab（参照漏れ等：裏の守りを表示）**
+* [x] **FE-030：PreflightTab（参照漏れ等：裏の守りを表示）**
   `./Implementation_details/FE-030.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-031：HeatmapTab（余力：本文ハイライト＋フィルタ）**
+* [x] **FE-031：HeatmapTab（余力：本文ハイライト＋フィルタ）**
   `./Implementation_details/FE-031.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-040：設定画面（保存ON/OFF・保持期間・外部送信説明・削除）**
+* [x] **FE-040：設定画面（保存ON/OFF・保持期間・外部送信説明・削除）**
   `./Implementation_details/FE-040.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 
