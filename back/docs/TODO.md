@@ -234,31 +234,31 @@
 
 ## F. Oral Defense（口頭試問API）＋Patch（diff）＋Report
 
-* [ ] **BE-070：OralExaminer 雛形（質問生成I/O）**
+* [x] **BE-070：OralExaminer 雛形（質問生成I/O）**
   `./Implementation_details/BE-070.md`
   担当者: 
 
-* [ ] **BE-071：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
+* [x] **BE-071：POST /v1/oral/ask（質問→評価→追記文案→todo候補）**
   `./Implementation_details/BE-071.md`
   担当者: 
 
-* [ ] **BE-072：PatchService 雛形（generateUnifiedDiff I/O）**
+* [x] **BE-072：PatchService 雛形（generateUnifiedDiff I/O）**
   `./Implementation_details/BE-072.md`
   担当者: 
 
-* [ ] **BE-073：POST /v1/patch/generate（採用ToDo→diff生成→GCS保存）**
+* [x] **BE-073：POST /v1/patch/generate（採用ToDo→diff生成→GCS保存）**
   `./Implementation_details/BE-073.md`
   担当者: 
 
-* [ ] **BE-074：ReportService 雛形（renderHtml I/O）**
+* [x] **BE-074：ReportService 雛形（renderHtml I/O）**
   `./Implementation_details/BE-074.md`
   担当者: 
 
-* [ ] **BE-075：POST /v1/report/generate（HTML生成→GCS保存）**
+* [x] **BE-075：POST /v1/report/generate（HTML生成→GCS保存）**
   `./Implementation_details/BE-075.md`
   担当者: 
 
-* [ ] **BE-076：GET /v1/report/:reportId（署名URL返却）**
+* [x] **BE-076：GET /v1/report/:reportId（署名URL返却）**
   `./Implementation_details/BE-076.md`
   担当者: 
 
