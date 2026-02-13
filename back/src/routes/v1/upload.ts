@@ -12,6 +12,17 @@ import { makeId } from '../../utils/ids.js'
 
 export const registerUploadRoutes = (app: Hono) => {
   app.post('/upload', async (c) => {
+    const contentType = c.req.header('content-type') ?? ''
+    if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+      return c.json(
+        buildError(
+          'INVALID_INPUT',
+          'content-type must be multipart/form-data for upload'
+        ),
+        400
+      )
+    }
+
     let body: Awaited<ReturnType<typeof c.req.parseBody>>
     try {
       body = await c.req.parseBody({ all: true })

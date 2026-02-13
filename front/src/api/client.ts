@@ -10,9 +10,6 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
       timeout: 30000, // 30秒
     });
 
@@ -63,7 +60,9 @@ class ApiClient {
 
   // POST request (JSON)
   async post<T>(url: string, data?: unknown): Promise<T> {
-    const response = await this.client.post<T>(url, data);
+    const response = await this.client.post<T>(url, data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
     return response.data;
   }
 
@@ -76,7 +75,9 @@ class ApiClient {
 
   // PUT request
   async put<T>(url: string, data?: unknown): Promise<T> {
-    const response = await this.client.put<T>(url, data);
+    const response = await this.client.put<T>(url, data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
     return response.data;
   }
 
