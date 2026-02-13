@@ -5,6 +5,8 @@ import { registerHealthRoutes } from './health.js'
 import { registerOralRoutes } from './oral.js'
 import { registerPatchRoutes } from './patch.js'
 import { registerReportRoutes } from './report.js'
+import { registerSessionRoutes } from './sessions.js'
+import { registerSettingsRoutes } from './settings.js'
 import { registerUploadRoutes } from './upload.js'
 
 export const registerV1Routes = (app: Hono) => {
@@ -16,6 +18,8 @@ export const registerV1Routes = (app: Hono) => {
   registerOralRoutes(v1)
   registerPatchRoutes(v1)
   registerReportRoutes(v1)
+  registerSessionRoutes(v1)
+  registerSettingsRoutes(v1)
   registerHealthRoutes(v1)
 
   app.route('/v1', v1)

@@ -45,6 +45,12 @@ const parseIsoMillis = (value: string | undefined): number | null => {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+const toMillisOrZero = (value: Date | string | undefined): number => {
+  if (!value) return 0
+  const parsed = Date.parse(String(value))
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
 type LockReason = 'already_finished' | 'locked'
 
 export type LockResult = {
@@ -164,6 +170,36 @@ export class FirestoreRepo {
     const snap = await this.client.collection('analyses').doc(analysisId).get()
     if (!snap.exists) return null
     return toPublicAnalysis(snap.data() as StoredAnalysis)
+  }
+
+  async getLatestSubmissionBySession(sessionId: string): Promise<Submission | null> {
+    const snap = await this.client
+      .collection('submissions')
+      .where('sessionId', '==', sessionId)
+      .get()
+
+    if (snap.empty) return null
+
+    const submissions = snap.docs.map((doc) => doc.data() as Submission)
+    submissions.sort((left, right) => toMillisOrZero(right.createdAt) - toMillisOrZero(left.createdAt))
+
+    return submissions[0] ?? null
+  }
+
+  async getLatestAnalysisBySession(sessionId: string): Promise<Analysis | null> {
+    const snap = await this.client
+      .collection('analyses')
+      .where('sessionId', '==', sessionId)
+      .get()
+
+    if (snap.empty) return null
+
+    const analyses = snap.docs.map((doc) => toPublicAnalysis(doc.data() as StoredAnalysis))
+    analyses.sort(
+      (left, right) => toMillisOrZero(right.updatedAt) - toMillisOrZero(left.updatedAt)
+    )
+
+    return analyses[0] ?? null
   }
 
   async updateAnalysisStatus(
@@ -383,6 +419,14 @@ export type GetSessionInput = {
   sessionId: string
 }
 
+export type GetLatestSubmissionBySessionInput = {
+  sessionId: string
+}
+
+export type GetLatestAnalysisBySessionInput = {
+  sessionId: string
+}
+
 export type SetPointersInput = {
   analysisId: string
   gcsExtractJson?: string
@@ -428,6 +472,18 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<Analysis | n
 
 export const getSession = async (input: GetSessionInput): Promise<Session | null> => {
   return defaultRepo.getSession(input.sessionId)
+}
+
+export const getLatestSubmissionBySession = async (
+  input: GetLatestSubmissionBySessionInput
+): Promise<Submission | null> => {
+  return defaultRepo.getLatestSubmissionBySession(input.sessionId)
+}
+
+export const getLatestAnalysisBySession = async (
+  input: GetLatestAnalysisBySessionInput
+): Promise<Analysis | null> => {
+  return defaultRepo.getLatestAnalysisBySession(input.sessionId)
 }
 
 export const setPointers = async (input: SetPointersInput): Promise<void> => {

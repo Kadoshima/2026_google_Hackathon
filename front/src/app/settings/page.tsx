@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { settingsApi } from '@/api';
 import { useAppStore } from '@/store/useAppStore';
-import { Card, CardHeader, Button, Badge } from '@/components/ui';
+import { Card, CardHeader, Button } from '@/components/ui';
 import { AlertTriangle, Trash2, Save, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,9 +11,25 @@ export default function SettingsPage() {
   const { userSettings, setUserSettings, sessions, removeSession } = useAppStore();
   const [localSettings, setLocalSettings] = useState(userSettings);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const handleSave = () => {
-    setUserSettings(localSettings);
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await settingsApi.update({
+        save_enabled: localSettings.save_enabled,
+        retention_days: localSettings.retention_days,
+        language: localSettings.default_language
+      });
+      setUserSettings(localSettings);
+      setSaveMessage('設定を保存しました');
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : '設定保存に失敗しました');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteAll = () => {
@@ -92,11 +109,14 @@ export default function SettingsPage() {
 
           {/* Save button */}
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={!hasChanges}>
+            <Button onClick={handleSave} disabled={!hasChanges || isSaving} isLoading={isSaving}>
               <Save className="w-4 h-4 mr-2" />
               設定を保存
             </Button>
           </div>
+          {saveMessage && (
+            <p className="text-sm text-gray-700">{saveMessage}</p>
+          )}
         </div>
       </Card>
 

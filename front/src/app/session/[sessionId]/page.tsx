@@ -12,7 +12,7 @@ import {
   Sparkles
 } from 'lucide-react'
 import type { AnalysisResponse, OralAskResponse } from 'shared'
-import { analysisApi, oralApi, patchApi, reportApi } from '@/api'
+import { analysisApi, oralApi, patchApi, reportApi, sessionApi } from '@/api'
 import { Badge, Button, Card, CardHeader } from '@/components/ui'
 import {
   AnalysisProgress,
@@ -22,7 +22,7 @@ import {
   TodoList
 } from '@/features'
 import { useAppStore } from '@/store/useAppStore'
-import type { ChatMessage, ClaimEvidence, TodoItem, VaguePoint } from '@/types'
+import type { ChatMessage, ClaimEvidence, Session, TodoItem, VaguePoint } from '@/types'
 
 type SessionTab =
   | 'summary'
@@ -50,6 +50,7 @@ export default function SessionPage() {
   const sessionId = params.sessionId as string
 
   const sessions = useAppStore((state) => state.sessions)
+  const addSession = useAppStore((state) => state.addSession)
   const setSessions = useAppStore((state) => state.setSessions)
   const setCurrentSessionId = useAppStore((state) => state.setCurrentSessionId)
 
@@ -58,10 +59,23 @@ export default function SessionPage() {
     [sessions, sessionId]
   )
 
-  const analysisId = session?.analysis_id
+  const sessionQuery = useQuery({
+    queryKey: ['session', sessionId],
+    queryFn: () => sessionApi.get<Session>(sessionId),
+    enabled: !session,
+    retry: false
+  })
+
+  useEffect(() => {
+    if (session || !sessionQuery.data) return
+    addSession(sessionQuery.data)
+  }, [addSession, session, sessionQuery.data])
+
+  const activeSession = session ?? sessionQuery.data
+  const analysisId = activeSession?.analysis_id
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [todos, setTodos] = useState<TodoItem[]>(() => buildInitialTodos())
+  const [todos, setTodos] = useState<TodoItem[]>([])
   const [selectedClaim, setSelectedClaim] = useState<ClaimEvidence | null>(null)
   const [reportState, setReportState] = useState<{
     reportId?: string
@@ -89,18 +103,18 @@ export default function SessionPage() {
   })
 
   useEffect(() => {
-    if (!analysisQuery.data || !session) return
+    if (!analysisQuery.data || !activeSession) return
     const next = mapAnalysisStatusToSessionStatus(analysisQuery.data.status)
-    if (session.status === next) return
+    if (activeSession.status === next) return
 
     setSessions(
       sessions.map((item) =>
-        item.session_id === session.session_id
+        item.session_id === activeSession.session_id
           ? { ...item, status: next, updated_at: new Date().toISOString() }
           : item
       )
     )
-  }, [analysisQuery.data, session, setSessions, sessions])
+  }, [activeSession, analysisQuery.data, setSessions, sessions])
 
   const oralMutation = useMutation({
     mutationFn: async (answer: string): Promise<OralAskResponse> => {
@@ -112,16 +126,10 @@ export default function SessionPage() {
           turn_id: turnId,
           user_answer: answer
         })
-      } catch {
-        return {
-          question: '具体的な再現条件と比較対象を説明してください。',
-          follow_up: true,
-          draft_sentences: [
-            '本手法は条件A/Bで従来法より平均22%の改善を示した。',
-            '適用範囲外の条件では改善が限定的である。'
-          ],
-          todo_candidate: { title: '実験条件を追記', impact: 4, effort: 2 }
-        }
+      } catch (error) {
+        throw error instanceof Error
+          ? error
+          : new Error('failed to ask oral defense question')
       }
     },
     onSuccess: (result) => {
@@ -147,8 +155,23 @@ export default function SessionPage() {
             ]
           : [])
       ])
+    },
+    onError: (error) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ai_error_${Date.now()}`,
+          type: 'ai_evaluation',
+          content: `Oral API error: ${error instanceof Error ? error.message : 'unknown error'}`,
+          timestamp: new Date().toISOString()
+        }
+      ])
     }
   })
+
+  useEffect(() => {
+    setTodos((prev) => (prev.length > 0 ? prev : buildTodosFromAnalysis(analysisQuery.data)))
+  }, [analysisQuery.data])
 
   const patchMutation = useMutation({
     mutationFn: async () => {
@@ -179,7 +202,17 @@ export default function SessionPage() {
     }
   })
 
-  if (!session) {
+  if (!activeSession) {
+    if (sessionQuery.isLoading) {
+      return (
+        <div className="max-w-4xl mx-auto">
+          <Card>
+            <p className="text-gray-600">セッション情報を取得中...</p>
+          </Card>
+        </div>
+      )
+    }
+
     return (
       <div className="max-w-4xl mx-auto">
         <Card>
@@ -190,7 +223,8 @@ export default function SessionPage() {
   }
 
   const claims = buildClaims(analysisQuery.data)
-  const vaguePoints = buildVaguePoints()
+  const vaguePoints = buildVaguePoints(analysisQuery.data)
+  const heatmapText = buildHeatmapText(claims)
   const activeAnalysisStatus = analysisQuery.data?.status ?? 'QUEUED'
   const activeProgress = analysisQuery.data?.progress ?? 0
   const activeMessage = analysisQuery.data?.message
@@ -200,11 +234,11 @@ export default function SessionPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {session.title || '無題の論文'}
+            {activeSession.title || '無題の論文'}
           </h1>
           <div className="flex items-center gap-2 mt-2">
-            <StatusBadge status={session.status} />
-            <span className="text-sm text-gray-500">{session.submission?.filename}</span>
+            <StatusBadge status={activeSession.status} />
+            <span className="text-sm text-gray-500">{activeSession.submission?.filename}</span>
             {analysisId && (
               <span className="text-xs text-gray-400">analysis_id: {analysisId}</span>
             )}
@@ -286,10 +320,10 @@ export default function SessionPage() {
           onGenerate={() => reportMutation.mutate()}
         />
       )}
-      {activeTab === 'preflight' && <PreflightTab />}
+      {activeTab === 'preflight' && <PreflightTab analysis={analysisQuery.data} />}
       {activeTab === 'heatmap' && (
         <TextHeatmapViewer
-          text={buildDemoText()}
+          text={heatmapText}
           vaguePoints={vaguePoints}
         />
       )}
@@ -485,14 +519,22 @@ function ReportTab({
   )
 }
 
-function PreflightTab() {
+function PreflightTab({ analysis }: { analysis: AnalysisResponse | undefined }) {
+  const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const metrics = summary?.metrics
+
   return (
     <Card>
       <CardHeader title="Preflight" subtitle="参照漏れや構成崩れのチェック" icon={<AlertCircle className="w-5 h-5 text-orange-600" />} />
       <div className="space-y-2 text-sm text-gray-700">
-        <p>- missing citation: 2</p>
-        <p>- unreferenced figure: 1</p>
-        <p>- structure warnings: 1</p>
+        {!metrics && <p>- 解析完了後にメトリクスを表示します</p>}
+        {metrics && (
+          <>
+            <p>- no evidence claims: {metrics.no_evidence_claims ?? '-'}</p>
+            <p>- weak evidence claims: {metrics.weak_evidence_claims ?? '-'}</p>
+            <p>- specificity lack: {metrics.specificity_lack ?? '-'}</p>
+          </>
+        )}
       </div>
     </Card>
   )
@@ -536,24 +578,7 @@ function buildClaims(analysis: AnalysisResponse | undefined): ClaimEvidence[] {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
   const risks = summary?.top3_risks ?? []
 
-  if (risks.length === 0) {
-    return [
-      {
-        claim_id: 'claim_1',
-        claim_text: '提案手法は従来法より高速である',
-        location: { page: 3, snippet: '提案手法は従来法より高速である' },
-        evidence: [{ type: 'experiment', ref_id: 'fig_3', snippet: '実験結果の比較表' }],
-        strength: 'moderate'
-      },
-      {
-        claim_id: 'claim_2',
-        claim_text: '提案法は全データセットで一貫して優位である',
-        location: { page: 4, snippet: '全データセットで優位' },
-        evidence: [],
-        strength: 'none'
-      }
-    ]
-  }
+  if (risks.length === 0) return []
 
   return risks.map((risk, index) => ({
     claim_id: risk.refs?.claim_ids?.[0] ?? `claim_${index + 1}`,
@@ -567,53 +592,37 @@ function buildClaims(analysis: AnalysisResponse | undefined): ClaimEvidence[] {
   }))
 }
 
-function buildVaguePoints(): VaguePoint[] {
-  return [
-    {
-      id: 'v1',
-      type: 'no_number',
-      text: '大幅に高速化',
-      location: { page: 3, line: 11 },
-      suggestion: '具体的な倍率を追記'
-    },
-    {
-      id: 'v2',
-      type: 'no_condition',
-      text: 'どの環境でも有効',
-      location: { page: 5, line: 7 },
-      suggestion: '適用条件を明記'
-    }
-  ]
+function buildVaguePoints(analysis: AnalysisResponse | undefined): VaguePoint[] {
+  const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const risks = summary?.top3_risks ?? []
+
+  return risks.map((risk, index) => ({
+    id: `risk_vague_${index + 1}`,
+    type: 'no_condition',
+    text: risk.title,
+    location: {},
+    suggestion: '根拠となる条件・数値・比較対象を明示してください'
+  }))
 }
 
-function buildDemoText(): string {
-  return [
-    '提案手法は従来法に比べて大幅に高速化を実現した。',
-    'また、どの環境でも有効であることを確認した。',
-    '実験結果は図3に示す。'
-  ].join('\n')
+function buildHeatmapText(claims: ClaimEvidence[]): string {
+  if (claims.length === 0) return ''
+  return claims.map((claim) => claim.claim_text).join('\n')
 }
 
-function buildInitialTodos(): TodoItem[] {
-  return [
-    {
-      id: 'todo_1',
-      title: '図3に統計情報を追加',
-      description: 'p値、n数、信頼区間を明記する',
-      impact: 5,
-      effort: 2,
-      status: 'pending',
-      source: 'evidence',
-      suggested_diff: '- 実験結果を示す。\n+ 実験結果を示す（p<0.01, n=30）。'
-    },
-    {
-      id: 'todo_2',
-      title: '高速化主張を定量化',
-      description: '「大幅に」を具体的な値に置換',
-      impact: 4,
-      effort: 1,
-      status: 'pending',
-      source: 'logic'
-    }
-  ]
+function buildTodosFromAnalysis(analysis: AnalysisResponse | undefined): TodoItem[] {
+  const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const risks = summary?.top3_risks ?? []
+
+  if (risks.length === 0) return []
+
+  return risks.map((risk, index) => ({
+    id: `todo_risk_${index + 1}`,
+    title: risk.title,
+    description: '該当主張の根拠を補強してください',
+    impact: 4,
+    effort: 2,
+    status: 'pending',
+    source: 'evidence'
+  }))
 }

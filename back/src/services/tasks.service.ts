@@ -9,7 +9,30 @@ const taskQueueName = process.env.TASK_QUEUE_NAME
 const taskLocation = process.env.TASK_LOCATION
 const tasksTargetBaseUrl = process.env.TASKS_TARGET_URL
 const taskServiceAccountEmail = process.env.TASK_SERVICE_ACCOUNT_EMAIL
-const tasksDispatchMode = (process.env.TASKS_DISPATCH_MODE ?? 'cloud_tasks').toLowerCase()
+const rawTasksDispatchMode = (process.env.TASKS_DISPATCH_MODE ?? 'cloud_tasks').toLowerCase()
+const tasksDispatchMode = normalizeDispatchMode(rawTasksDispatchMode)
+
+console.info(
+  JSON.stringify({
+    event: 'tasks_dispatch_mode',
+    mode: tasksDispatchMode
+  })
+)
+
+function normalizeDispatchMode(mode: string): 'cloud_tasks' | 'in_process' {
+  if (mode === 'cloud_tasks' || mode === 'in_process') {
+    return mode
+  }
+
+  console.warn(
+    JSON.stringify({
+      event: 'tasks_dispatch_mode_invalid',
+      value: mode,
+      fallback: 'cloud_tasks'
+    })
+  )
+  return 'cloud_tasks'
+}
 
 const requireTaskConfig = () => {
   if (!projectId) {
@@ -24,8 +47,16 @@ const requireTaskConfig = () => {
   if (!tasksTargetBaseUrl) {
     throw new Error('TASKS_TARGET_URL is required')
   }
+  if (tasksTargetBaseUrl.includes('your-api-domain')) {
+    throw new Error('TASKS_TARGET_URL must be a real endpoint (placeholder is not allowed)')
+  }
   if (!taskServiceAccountEmail) {
     throw new Error('TASK_SERVICE_ACCOUNT_EMAIL is required')
+  }
+  if (taskServiceAccountEmail.includes('your-cloud-tasks-sa@')) {
+    throw new Error(
+      'TASK_SERVICE_ACCOUNT_EMAIL must be a real service account (placeholder is not allowed)'
+    )
   }
 
   return {
@@ -45,6 +76,8 @@ export const getAnalysisQueuePath = (): string => {
 export type EnqueueAnalysisTaskInput = {
   analysisId: string
 }
+
+export const getTasksDispatchMode = (): 'cloud_tasks' | 'in_process' => tasksDispatchMode
 
 export const enqueueAnalysisTask = async (
   input: EnqueueAnalysisTaskInput

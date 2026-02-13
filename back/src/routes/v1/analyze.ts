@@ -1,7 +1,10 @@
 import type { Hono } from 'hono'
 import type { AnalyzeRequest, AnalyzeResponse } from 'shared'
 import { createAnalysis } from '../../services/firestore.repo.js'
-import { enqueueAnalysisTask } from '../../services/tasks.service.js'
+import {
+  enqueueAnalysisTask,
+  getTasksDispatchMode
+} from '../../services/tasks.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
 
@@ -35,6 +38,7 @@ export const registerAnalyzeRoutes = (app: Hono) => {
     } catch (error) {
       return c.json(
         buildError('INTERNAL_ERROR', 'failed to enqueue analysis', {
+          dispatch_mode: getTasksDispatchMode(),
           message: error instanceof Error ? error.message : 'unknown error'
         }),
         500

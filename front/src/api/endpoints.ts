@@ -32,13 +32,9 @@ export const analysisApi = {
   }
 }
 
-const notImplemented = async <T>(name: string): Promise<T> => {
-  throw new Error(`${name} is not implemented in backend yet`)
-}
-
 export const sessionApi = {
   get: async <T>(sessionId: string): Promise<T> => {
-    return notImplemented<T>(`GET /sessions/${sessionId}`)
+    return apiClient.get<T>(`/sessions/${sessionId}`)
   }
 }
 
@@ -68,12 +64,12 @@ export const reportApi = {
 
 export const todoApi = {
   list: async <T>(sessionId: string): Promise<T> => {
-    return notImplemented<T>(`GET /sessions/${sessionId}/todos`)
+    return apiClient.get<T>(`/sessions/${sessionId}/todos`)
   }
 }
 
 export const settingsApi = {
   update: async <T>(settings: Partial<T>): Promise<T> => {
-    return notImplemented<T>('PUT /settings')
+    return apiClient.put<T>('/settings', settings)
   }
 }
