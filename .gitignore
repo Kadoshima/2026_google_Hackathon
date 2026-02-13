@@ -5,3 +5,4 @@ back/dist/
 **/.env
 **/.env.local
 golden-union-486611-r2-deb706568af6.json
+.DS_Store
