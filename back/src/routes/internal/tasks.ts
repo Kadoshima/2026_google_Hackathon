@@ -79,7 +79,7 @@ export const registerTaskRoutes = (app: Hono) => {
       await repo.updateAnalysisStatus(
         analysisId,
         AnalysisStatus.EXTRACTING,
-        0.01,
+        1,
         AnalysisStep.EXTRACT
       )
       await orchestrator.run(analysisId, { lockOwner })
@@ -103,7 +103,7 @@ export const registerTaskRoutes = (app: Hono) => {
     } catch (error) {
       if (lockAcquired) {
         await repo
-          .updateAnalysisStatus(analysisId, AnalysisStatus.FAILED, 1, AnalysisStep.FINALIZE, {
+          .updateAnalysisStatus(analysisId, AnalysisStatus.FAILED, 100, AnalysisStep.FINALIZE, {
             code: ErrorCodes.WORKER_FAILED,
             messagePublic: 'analysis failed',
             messageInternal: error instanceof Error ? error.message : 'unknown'

@@ -37,6 +37,12 @@ export type PutJsonInput = {
   json: string
 }
 
+export type PutTextInput = {
+  objectPath: string
+  text: string
+  contentType?: string
+}
+
 export class StorageService {
   private readonly bucketName: string
   private readonly storage: Storage
@@ -200,6 +206,17 @@ export const putJson = async (input: PutJsonInput): Promise<string> => {
 
   await storage.bucket(bucket).file(input.objectPath).save(input.json, {
     contentType: 'application/json',
+    resumable: false
+  })
+
+  return `gs://${bucket}/${input.objectPath}`
+}
+
+export const putText = async (input: PutTextInput): Promise<string> => {
+  const bucket = requireBucketName()
+
+  await storage.bucket(bucket).file(input.objectPath).save(input.text, {
+    contentType: input.contentType ?? 'text/plain; charset=utf-8',
     resumable: false
   })
 

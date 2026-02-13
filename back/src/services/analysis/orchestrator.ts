@@ -48,7 +48,7 @@ export class AnalysisOrchestrator {
     await this.repo.updateAnalysisStatus(
       analysisId,
       AnalysisStatus.EXTRACTING,
-      0.1,
+      10,
       AnalysisStep.EXTRACT
     )
 
@@ -62,7 +62,7 @@ export class AnalysisOrchestrator {
     await this.repo.updateAnalysisStatus(
       analysisId,
       AnalysisStatus.ANALYZING,
-      0.6,
+      60,
       AnalysisStep.LOGIC
     )
 
@@ -82,7 +82,7 @@ export class AnalysisOrchestrator {
     const resultGsPath = await this.storage.putJson(resultObjectPath, result)
     await this.repo.setPointers(analysisId, { gcsAnalysisJson: resultGsPath })
 
-    await this.repo.updateAnalysisStatus(analysisId, AnalysisStatus.READY, 1, AnalysisStep.FINALIZE)
+    await this.repo.updateAnalysisStatus(analysisId, AnalysisStatus.READY, 100, AnalysisStep.FINALIZE)
     return result
   }
 

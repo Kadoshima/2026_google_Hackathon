@@ -378,6 +378,10 @@ export type GetAnalysisInput = {
   analysisId: string
 }
 
+export type GetSessionInput = {
+  sessionId: string
+}
+
 const defaultRepo = new FirestoreRepo()
 
 export const createSession = async (input: CreateSessionInput): Promise<Session> => {
@@ -405,3 +409,6 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<Analysis | n
   return defaultRepo.getAnalysis(input.analysisId)
 }
 
+export const getSession = async (input: GetSessionInput): Promise<Session | null> => {
+  return defaultRepo.getSession(input.sessionId)
+}

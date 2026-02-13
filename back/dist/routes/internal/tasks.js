@@ -49,7 +49,7 @@ export const registerTaskRoutes = (app) => {
                 }, 200);
             }
             lockAcquired = true;
-            await repo.updateAnalysisStatus(analysisId, AnalysisStatus.EXTRACTING, 0.01, AnalysisStep.EXTRACT);
+            await repo.updateAnalysisStatus(analysisId, AnalysisStatus.EXTRACTING, 1, AnalysisStep.EXTRACT);
             await orchestrator.run(analysisId, { lockOwner });
             console.info(JSON.stringify({
                 event: 'analysis_task_accepted',
@@ -65,7 +65,7 @@ export const registerTaskRoutes = (app) => {
         catch (error) {
             if (lockAcquired) {
                 await repo
-                    .updateAnalysisStatus(analysisId, AnalysisStatus.FAILED, 1, AnalysisStep.FINALIZE, {
+                    .updateAnalysisStatus(analysisId, AnalysisStatus.FAILED, 100, AnalysisStep.FINALIZE, {
                     code: ErrorCodes.WORKER_FAILED,
                     messagePublic: 'analysis failed',
                     messageInternal: error instanceof Error ? error.message : 'unknown'
