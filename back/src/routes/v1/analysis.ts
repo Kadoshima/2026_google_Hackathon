@@ -1,8 +1,11 @@
 import type { Hono } from 'hono'
 import type { AnalysisReadyResponse, AnalysisResponse, AnalysisSummary } from 'shared'
+import type { AnalysisResultJson } from '../../domain/types.js'
 import { getAnalysis } from '../../services/firestore.repo.js'
-import { getSignedUrl } from '../../services/storage.service.js'
+import { getSignedUrl, StorageService } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
+
+const storageService = new StorageService()
 
 export const registerAnalysisRoutes = (app: Hono) => {
   app.get('/analysis/:analysisId', async (c) => {
@@ -30,7 +33,7 @@ export const registerAnalysisRoutes = (app: Hono) => {
         return c.json(base, 200)
       }
 
-      const summary = buildSummary(analysis.metrics)
+      const summary = await buildSummary(analysis.metrics, analysis.pointers?.gcsAnalysisJson)
       const pointers = await buildPointers(analysis.pointers)
 
       const readyResponse: AnalysisReadyResponse = {
@@ -56,34 +59,64 @@ const normalizeProgress = (progress: number): number => {
   return Math.min(Math.max(value, 0), 100)
 }
 
-const buildSummary = (
+const buildSummary = async (
   metrics: {
     noEvidenceClaimsCount?: number
     weakEvidenceClaimsCount?: number
     specificityLackCount?: number
-  } | undefined
-): AnalysisSummary | undefined => {
-  if (!metrics) return undefined
+  } | undefined,
+  analysisJsonPath: string | undefined
+): Promise<AnalysisSummary | undefined> => {
+  const hasMetric = Boolean(
+    metrics &&
+      (metrics.noEvidenceClaimsCount !== undefined ||
+        metrics.weakEvidenceClaimsCount !== undefined ||
+        metrics.specificityLackCount !== undefined)
+  )
 
-  const hasMetric =
-    metrics.noEvidenceClaimsCount !== undefined ||
-    metrics.weakEvidenceClaimsCount !== undefined ||
-    metrics.specificityLackCount !== undefined
+  const topRisks = await readTopRisks(analysisJsonPath)
 
-  if (!hasMetric) return undefined
+  if (!hasMetric && topRisks.length === 0) return undefined
+
+  const metricFields = metrics
+    ? {
+        ...(metrics.noEvidenceClaimsCount !== undefined
+          ? { no_evidence_claims: metrics.noEvidenceClaimsCount }
+          : {}),
+        ...(metrics.weakEvidenceClaimsCount !== undefined
+          ? { weak_evidence_claims: metrics.weakEvidenceClaimsCount }
+          : {}),
+        ...(metrics.specificityLackCount !== undefined
+          ? { specificity_lack: metrics.specificityLackCount }
+          : {})
+      }
+    : {}
 
   return {
-    metrics: {
-      ...(metrics.noEvidenceClaimsCount !== undefined
-        ? { no_evidence_claims: metrics.noEvidenceClaimsCount }
-        : {}),
-      ...(metrics.weakEvidenceClaimsCount !== undefined
-        ? { weak_evidence_claims: metrics.weakEvidenceClaimsCount }
-        : {}),
-      ...(metrics.specificityLackCount !== undefined
-        ? { specificity_lack: metrics.specificityLackCount }
-        : {})
-    }
+    ...(topRisks.length > 0 ? { top3_risks: topRisks } : {}),
+    ...(Object.keys(metricFields).length > 0 ? { metrics: metricFields } : {})
+  }
+}
+
+const readTopRisks = async (
+  analysisJsonPath: string | undefined
+): Promise<NonNullable<AnalysisSummary['top3_risks']>> => {
+  if (!analysisJsonPath) return []
+
+  try {
+    const result = await storageService.readJson<AnalysisResultJson>(analysisJsonPath)
+    const topRisks = result.summary?.topRisks ?? []
+    return topRisks.slice(0, 3).map((risk) => ({
+      title: risk.title,
+      refs: {
+        ...(risk.refs?.claimIds ? { claim_ids: risk.refs.claimIds } : {}),
+        ...(risk.refs?.paragraphIds ? { paragraph_ids: risk.refs.paragraphIds } : {}),
+        ...(risk.refs?.figureIds ? { figure_ids: risk.refs.figureIds } : {}),
+        ...(risk.refs?.citationKeys ? { citation_keys: risk.refs.citationKeys } : {})
+      }
+    }))
+  } catch {
+    return []
   }
 }
 

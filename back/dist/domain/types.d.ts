@@ -114,6 +114,36 @@ export type PreflightResult = {
 export type AnalysisResultJson = {
     schemaVersion: 'v1';
     analysisId: string;
+    claims?: Array<{
+        claimId: string;
+        text: string;
+        paragraphIds: string[];
+    }>;
+    evidenceRisks?: Array<{
+        claimId: string;
+        severity: 'LOW' | 'MEDIUM' | 'HIGH';
+        paragraphIds: string[];
+        reason: string;
+    }>;
+    logicRisks?: Array<{
+        claimId: string;
+        severity: 'LOW' | 'MEDIUM' | 'HIGH';
+        reason: string;
+    }>;
+    priorArtQueries?: Array<{
+        claimId: string;
+        query: string;
+        rationale: string;
+    }>;
+    summary?: {
+        topRisks: Array<{
+            severity: 'LOW' | 'MEDIUM' | 'HIGH';
+            title: string;
+            reason: string;
+            refs?: ConversationRefs;
+        }>;
+    };
+    metrics?: AnalysisMetrics;
     preflight: PreflightResult;
     generatedAt: string;
     extractPath?: string;

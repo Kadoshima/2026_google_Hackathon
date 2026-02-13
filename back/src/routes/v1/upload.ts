@@ -9,9 +9,28 @@ import {
 import { putRawFile } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
+import { resolveClientTokenHash } from '../../utils/security.js'
+
+const uploadRateLimiter = createFixedWindowRateLimiter({
+  maxRequests: Number(process.env.UPLOAD_RATE_LIMIT_MAX ?? 20),
+  windowMs: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS ?? 60_000)
+})
 
 export const registerUploadRoutes = (app: Hono) => {
   app.post('/upload', async (c) => {
+    const clientTokenHash = resolveClientTokenHash(c.req)
+    try {
+      uploadRateLimiter.check(`upload:${clientTokenHash}`)
+    } catch (error) {
+      return c.json(
+        buildError('RATE_LIMITED', 'too many upload requests', {
+          message: error instanceof Error ? error.message : 'rate limit exceeded'
+        }),
+        429
+      )
+    }
+
     const contentType = c.req.header('content-type') ?? ''
     if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
       return c.json(
@@ -77,10 +96,7 @@ export const registerUploadRoutes = (app: Hono) => {
 
       await createSession({
         sessionId,
-        clientTokenHash:
-          c.req.header('x-client-token-hash') ??
-          c.req.header('x-client-token') ??
-          'anonymous',
+        clientTokenHash,
         retentionPolicy,
         ...(metadataResult.value.language
           ? { language: metadataResult.value.language }

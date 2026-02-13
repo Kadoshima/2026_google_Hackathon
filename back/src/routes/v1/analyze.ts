@@ -7,9 +7,28 @@ import {
 } from '../../services/tasks.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
+import { resolveClientTokenHash } from '../../utils/security.js'
+
+const analyzeRateLimiter = createFixedWindowRateLimiter({
+  maxRequests: Number(process.env.ANALYZE_RATE_LIMIT_MAX ?? 60),
+  windowMs: Number(process.env.ANALYZE_RATE_LIMIT_WINDOW_MS ?? 60_000)
+})
 
 export const registerAnalyzeRoutes = (app: Hono) => {
   app.post('/analyze', async (c) => {
+    const clientTokenHash = resolveClientTokenHash(c.req)
+    try {
+      analyzeRateLimiter.check(`analyze:${clientTokenHash}`)
+    } catch (error) {
+      return c.json(
+        buildError('RATE_LIMITED', 'too many analyze requests', {
+          message: error instanceof Error ? error.message : 'rate limit exceeded'
+        }),
+        429
+      )
+    }
+
     let body: unknown
     try {
       body = await c.req.json()
