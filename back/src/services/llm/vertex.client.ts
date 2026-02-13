@@ -1,3 +1,5 @@
+import { GoogleAuth } from 'google-auth-library'
+
 export { runPrompt, setVertexTransport }
 
 export type OutputSchema<T> =
@@ -39,13 +41,66 @@ const DEFAULT_RETRY_DELAY_MS = Number(process.env.VERTEX_RETRY_DELAY_MS ?? 300)
 const DEFAULT_TEMPERATURE = Number(process.env.VERTEX_TEMPERATURE ?? 0.2)
 const DEFAULT_MODEL = process.env.VERTEX_MODEL ?? 'gemini-2.0-flash-lite'
 const DEFAULT_LOCATION = process.env.VERTEX_LOCATION ?? 'us-central1'
+const VERTEX_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
 
-let vertexTransport: VertexTransport = async () => {
-  throw new Error('Vertex API transport is not implemented yet')
-}
+const auth = new GoogleAuth({
+  scopes: [VERTEX_SCOPE]
+})
+
+let vertexTransport: VertexTransport = defaultVertexTransport
 
 const setVertexTransport = (transport: VertexTransport): void => {
   vertexTransport = transport
+}
+
+async function defaultVertexTransport(
+  request: VertexRequest,
+  signal: AbortSignal
+): Promise<unknown> {
+  const accessToken = await auth.getAccessToken()
+  if (!accessToken) {
+    throw new Error('failed to acquire Google access token for Vertex API')
+  }
+
+  const response = await fetch(buildVertexEndpoint(request), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: request.prompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: request.temperature
+      },
+      responseMimeType: 'application/json'
+    }),
+    signal
+  })
+
+  const payload = await readJson(response)
+
+  if (!response.ok) {
+    throw new Error(
+      `Vertex API ${response.status}: ${extractErrorMessage(payload)}`
+    )
+  }
+
+  const text = extractCandidateText(payload)
+  if (text.trim().length === 0) {
+    throw new Error('Vertex API returned empty candidate text')
+  }
+
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw new Error('Vertex API candidate is not valid JSON')
+  }
 }
 
 const runPrompt = async <T>(
@@ -103,6 +158,9 @@ const resolveOptions = (
   temperature: sanitizeTemperature(options.temperature, DEFAULT_TEMPERATURE),
   model: options.model?.trim() || DEFAULT_MODEL
 })
+
+const buildVertexEndpoint = (request: VertexRequest): string =>
+  `https://${request.location}-aiplatform.googleapis.com/v1/projects/${request.projectId}/locations/${request.location}/publishers/google/models/${request.model}:generateContent`
 
 const sanitizeInteger = (value: number | undefined, fallback: number): number => {
   if (value === undefined) return fallback
@@ -170,4 +228,71 @@ const backoffMs = (baseDelayMs: number, attempt: number): number => {
   const exponential = baseDelayMs * 2 ** (cappedAttempt - 1)
   const jitter = Math.floor(Math.random() * Math.max(1, Math.floor(baseDelayMs / 2)))
   return exponential + jitter
+}
+
+const readJson = async (response: Response): Promise<unknown> => {
+  const raw = await response.text()
+  if (raw.length === 0) {
+    return {}
+  }
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    return { raw }
+  }
+}
+
+const extractErrorMessage = (payload: unknown): string => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return 'unknown error'
+  }
+  const record = payload as Record<string, unknown>
+  const error = record.error
+  if (!error || typeof error !== 'object' || Array.isArray(error)) {
+    return 'unknown error'
+  }
+  const errorRecord = error as Record<string, unknown>
+  const message = errorRecord.message
+  if (typeof message === 'string' && message.length > 0) {
+    return message
+  }
+  return 'unknown error'
+}
+
+const extractCandidateText = (payload: unknown): string => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Vertex API payload must be an object')
+  }
+
+  const candidates = (payload as Record<string, unknown>).candidates
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    throw new Error('Vertex API payload has no candidates')
+  }
+
+  const first = candidates[0]
+  if (!first || typeof first !== 'object' || Array.isArray(first)) {
+    throw new Error('Vertex API candidate is invalid')
+  }
+
+  const content = (first as Record<string, unknown>).content
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    throw new Error('Vertex API candidate content is missing')
+  }
+
+  const parts = (content as Record<string, unknown>).parts
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error('Vertex API candidate parts are missing')
+  }
+
+  const part = parts[0]
+  if (!part || typeof part !== 'object' || Array.isArray(part)) {
+    throw new Error('Vertex API candidate part is invalid')
+  }
+
+  const text = (part as Record<string, unknown>).text
+  if (typeof text !== 'string') {
+    throw new Error('Vertex API candidate text is missing')
+  }
+
+  return text
 }

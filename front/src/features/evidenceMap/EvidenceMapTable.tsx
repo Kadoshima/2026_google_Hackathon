@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Card, CardHeader, Badge } from '@/components/ui';
 import type { ClaimEvidence, Evidence } from '@/types';
 import { ChevronDown, ChevronRight, FileText, Link2, AlertCircle } from 'lucide-react';
@@ -8,9 +8,11 @@ import { cn } from '@/lib/utils';
 
 interface EvidenceMapTableProps {
   claims: ClaimEvidence[];
+  onSelectClaim?: (claim: ClaimEvidence) => void;
+  selectedClaimId?: string;
 }
 
-export function EvidenceMapTable({ claims }: EvidenceMapTableProps) {
+export function EvidenceMapTable({ claims, onSelectClaim, selectedClaimId }: EvidenceMapTableProps) {
   const [expandedClaims, setExpandedClaims] = useState<Set<string>>(new Set());
 
   const toggleClaim = (claimId: string) => {
@@ -42,11 +44,16 @@ export function EvidenceMapTable({ claims }: EvidenceMapTableProps) {
           </thead>
           <tbody>
             {claims.map((claim) => (
-              <>
+              <Fragment key={claim.claim_id}>
                 <tr
-                  key={claim.claim_id}
-                  className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => toggleClaim(claim.claim_id)}
+                  className={cn(
+                    'border-b border-gray-100 hover:bg-gray-50 cursor-pointer',
+                    selectedClaimId === claim.claim_id && 'bg-indigo-50'
+                  )}
+                  onClick={() => {
+                    toggleClaim(claim.claim_id);
+                    onSelectClaim?.(claim);
+                  }}
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-start gap-2">
@@ -87,7 +94,7 @@ export function EvidenceMapTable({ claims }: EvidenceMapTableProps) {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>

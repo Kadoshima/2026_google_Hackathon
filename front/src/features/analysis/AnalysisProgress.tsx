@@ -13,6 +13,7 @@ interface AnalysisProgressProps {
 }
 
 const statusConfig: Record<AnalysisState, { label: string; color: 'default' | 'warning' | 'success' | 'error' }> = {
+  QUEUED: { label: 'キュー待ち', color: 'default' },
   UPLOADED: { label: 'アップロード完了', color: 'default' },
   EXTRACTING: { label: 'ファイル解析中', color: 'warning' },
   ANALYZING: { label: '分析実行中', color: 'warning' },

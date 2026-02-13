@@ -266,49 +266,49 @@
 
 ## G. Frontend SPA（アップロード→解析→体験の核）
 
-* [ ] **FE-010：SPAルーティング骨格（/new, /session/:id, /settings, /demo）**
+* [x] **FE-010：SPAルーティング骨格（/new, /session/:id, /settings, /demo）**
   `./Implementation_details/FE-010.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-011：UploadPage（ZIP/PDF DnD + オプション + 進捗）**
+* [x] **FE-011：UploadPage（ZIP/PDF DnD + オプション + 進捗）**
   `./Implementation_details/FE-011.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-012：SessionPage（解析進捗ポーリング：READYまで）**
+* [x] **FE-012：SessionPage（解析進捗ポーリング：READYまで）**
   `./Implementation_details/FE-012.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-020：SummaryTab（致命傷Top3 + metrics Before/After枠）**
+* [x] **FE-020：SummaryTab（致命傷Top3 + metrics Before/After枠）**
   `./Implementation_details/FE-020.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-021：EvidenceMapTab（テーブル + ClaimDetailDrawer）**
+* [x] **FE-021：EvidenceMapTab（テーブル + ClaimDetailDrawer）**
   `./Implementation_details/FE-021.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-022：OralDefenseTab（チャットUI：質問→回答→ドラフト採用）**
+* [x] **FE-022：OralDefenseTab（チャットUI：質問→回答→ドラフト採用）**
   `./Implementation_details/FE-022.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-023：TodoPatchTab（Top10 + DiffViewer + 採用/却下）**
+* [x] **FE-023：TodoPatchTab（Top10 + DiffViewer + 採用/却下）**
   `./Implementation_details/FE-023.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-024：ReportTab（生成→閲覧→DL）**
+* [x] **FE-024：ReportTab（生成→閲覧→DL）**
   `./Implementation_details/FE-024.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-030：PreflightTab（参照漏れ等：裏の守りを表示）**
+* [x] **FE-030：PreflightTab（参照漏れ等：裏の守りを表示）**
   `./Implementation_details/FE-030.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-031：HeatmapTab（余力：本文ハイライト＋フィルタ）**
+* [x] **FE-031：HeatmapTab（余力：本文ハイライト＋フィルタ）**
   `./Implementation_details/FE-031.md`
-  担当者: 
+  担当者: 萩原
 
-* [ ] **FE-040：設定画面（保存ON/OFF・保持期間・外部送信説明・削除）**
+* [x] **FE-040：設定画面（保存ON/OFF・保持期間・外部送信説明・削除）**
   `./Implementation_details/FE-040.md`
-  担当者: 
+  担当者: 萩原
 
 ---
 

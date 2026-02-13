@@ -46,6 +46,7 @@ export interface AnalysisStatus {
 }
 
 export type AnalysisState = 
+  | 'QUEUED'
   | 'UPLOADED' 
   | 'EXTRACTING' 
   | 'ANALYZING' 
@@ -248,6 +249,7 @@ export interface Session {
   session_id: string;
   client_token: string;
   title?: string;
+  analysis_id?: string;
   status: 'active' | 'analyzing' | 'completed' | 'error';
   created_at: string;
   updated_at: string;
