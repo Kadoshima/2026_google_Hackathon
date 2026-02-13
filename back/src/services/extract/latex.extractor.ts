@@ -550,36 +550,41 @@ export const safeUnzipLatex = async (
 export class LatexExtractor {
   async extract(zipBuffer: Buffer, analysisId: string): Promise<ExtractJson> {
     const project = await safeUnzipLatex(zipBuffer, analysisId)
-    const extracted = await loadLatexSource(project)
-    const latexSource = extracted.source
 
-    const sectionsWithOffsets = buildSections(latexSource)
-    const paragraphs = buildParagraphs(latexSource, sectionsWithOffsets)
-    const figuresWithBlock = buildFigures(latexSource)
-    const figures = attachFigureMentions(
-      figuresWithBlock.map(({ block, ...figure }) => figure),
-      paragraphs
-    )
-    const citationBundle = await buildCitations(project, paragraphs)
+    try {
+      const extracted = await loadLatexSource(project)
+      const latexSource = extracted.source
 
-    const now = new Date().toISOString()
-    const meta: NonNullable<ExtractJson['meta']> = {
-      extractor: 'latex-mvp',
-      createdAt: now
-    }
-    if (extracted.warnings.length > 0) {
-      meta.warnings = extracted.warnings
-    }
+      const sectionsWithOffsets = buildSections(latexSource)
+      const paragraphs = buildParagraphs(latexSource, sectionsWithOffsets)
+      const figuresWithBlock = buildFigures(latexSource)
+      const figures = attachFigureMentions(
+        figuresWithBlock.map(({ block, ...figure }) => figure),
+        paragraphs
+      )
+      const citationBundle = await buildCitations(project, paragraphs)
 
-    return {
-      schemaVersion: 'v1',
-      analysisId,
-      inputType: InputType.LATEX_ZIP,
-      sections: sectionsWithOffsets.map(({ start, ...section }) => section),
-      paragraphs,
-      figures,
-      citations: citationBundle.citations,
-      meta
+      const now = new Date().toISOString()
+      const meta: NonNullable<ExtractJson['meta']> = {
+        extractor: 'latex-mvp',
+        createdAt: now
+      }
+      if (extracted.warnings.length > 0) {
+        meta.warnings = extracted.warnings
+      }
+
+      return {
+        schemaVersion: 'v1',
+        analysisId,
+        inputType: InputType.LATEX_ZIP,
+        sections: sectionsWithOffsets.map(({ start, ...section }) => section),
+        paragraphs,
+        figures,
+        citations: citationBundle.citations,
+        meta
+      }
+    } finally {
+      await rm(project.rootDir, { recursive: true, force: true }).catch(() => {})
     }
   }
 }
