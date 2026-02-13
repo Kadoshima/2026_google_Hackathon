@@ -9,7 +9,7 @@ const taskQueueName = process.env.TASK_QUEUE_NAME
 const taskLocation = process.env.TASK_LOCATION
 const tasksTargetBaseUrl = process.env.TASKS_TARGET_URL
 const taskServiceAccountEmail = process.env.TASK_SERVICE_ACCOUNT_EMAIL
-const rawTasksDispatchMode = (process.env.TASKS_DISPATCH_MODE ?? 'cloud_tasks').toLowerCase()
+const rawTasksDispatchMode = (process.env.TASKS_DISPATCH_MODE ?? 'in_process').toLowerCase()
 const tasksDispatchMode = normalizeDispatchMode(rawTasksDispatchMode)
 
 console.info(
@@ -28,10 +28,10 @@ function normalizeDispatchMode(mode: string): 'cloud_tasks' | 'in_process' {
     JSON.stringify({
       event: 'tasks_dispatch_mode_invalid',
       value: mode,
-      fallback: 'cloud_tasks'
+      fallback: 'in_process'
     })
   )
-  return 'cloud_tasks'
+  return 'in_process'
 }
 
 const requireTaskConfig = () => {
