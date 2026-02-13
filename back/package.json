@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "node -r dotenv/config dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "smoke:be040-046": "npm run build && node dist/devtools/be040-046-smoke.js",
     "foo": "ts-node foo.ts"

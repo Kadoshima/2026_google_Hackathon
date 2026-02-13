@@ -1,8 +1,8 @@
 import type { Hono } from 'hono'
-import { AnalysisStatus, AnalysisStep } from '../../domain/enums.js'
 import { AnalysisOrchestrator } from '../../services/analysis/orchestrator.js'
 import { FirestoreRepo } from '../../services/firestore.repo.js'
 import { buildError, ErrorCodes, toErrorResponse } from '../../utils/errors.js'
+import { runAnalysisTask } from '../../services/tasks/analysis.task-runner.js'
 
 type AnalyzeTaskBody = {
   analysis_id: string
@@ -51,20 +51,14 @@ export const registerTaskRoutes = (app: Hono) => {
     const analysisId = body.analysis_id
     const lockOwner = `task_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     const requestId = getRequestId(c.req.header('x-cloud-tasks-taskname'), lockOwner)
-    let lockAcquired = false
-
-    console.info(
-      JSON.stringify({
-        event: 'analysis_task_received',
-        analysisId,
-        requestId,
-        lockOwner
-      })
-    )
 
     try {
-      const lock = await repo.acquireAnalysisLock(analysisId, lockOwner)
-      if (!lock.acquired) {
+      const result = await runAnalysisTask(
+        { analysisId, requestId, lockOwner },
+        { repo, orchestrator }
+      )
+
+      if (!result.accepted) {
         return c.json(
           {
             accepted: false,
@@ -75,24 +69,6 @@ export const registerTaskRoutes = (app: Hono) => {
         )
       }
 
-      lockAcquired = true
-      await repo.updateAnalysisStatus(
-        analysisId,
-        AnalysisStatus.EXTRACTING,
-        1,
-        AnalysisStep.EXTRACT
-      )
-      await orchestrator.run(analysisId, { lockOwner })
-
-      console.info(
-        JSON.stringify({
-          event: 'analysis_task_accepted',
-          analysisId,
-          requestId,
-          lockOwner
-        })
-      )
-
       return c.json(
         {
           accepted: true,
@@ -101,16 +77,6 @@ export const registerTaskRoutes = (app: Hono) => {
         202
       )
     } catch (error) {
-      if (lockAcquired) {
-        await repo
-          .updateAnalysisStatus(analysisId, AnalysisStatus.FAILED, 100, AnalysisStep.FINALIZE, {
-            code: ErrorCodes.WORKER_FAILED,
-            messagePublic: 'analysis failed',
-            messageInternal: error instanceof Error ? error.message : 'unknown'
-          })
-          .catch(() => {})
-      }
-
       const response = toErrorResponse(error, 'analysis failed')
       console.error(
         JSON.stringify({
@@ -124,10 +90,6 @@ export const registerTaskRoutes = (app: Hono) => {
         })
       )
       return c.json(response.payload, response.status)
-    } finally {
-      if (lockAcquired) {
-        await repo.releaseAnalysisLock(analysisId, lockOwner).catch(() => {})
-      }
     }
   })
 }
