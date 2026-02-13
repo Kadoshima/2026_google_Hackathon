@@ -1,5 +1,6 @@
 import { FieldValue, Firestore } from '@google-cloud/firestore'
-import type { InputType, AnalysisStatus, AnalysisStep } from '../domain/enums.js'
+import { AnalysisStatus } from '../domain/enums.js'
+import type { InputType, AnalysisStep } from '../domain/enums.js'
 import type {
   Analysis,
   AnalysisError,
@@ -382,6 +383,22 @@ export type GetSessionInput = {
   sessionId: string
 }
 
+export type SetPointersInput = {
+  analysisId: string
+  gcsExtractJson?: string
+  gcsAnalysisJson?: string
+  gcsReportHtml?: string
+}
+
+export type SaveConversationTurnInput = {
+  analysisId: string
+  turnId: string
+  role: ConversationTurn['role']
+  type: ConversationTurn['type']
+  content: string
+  refs?: ConversationRefs
+}
+
 const defaultRepo = new FirestoreRepo()
 
 export const createSession = async (input: CreateSessionInput): Promise<Session> => {
@@ -411,4 +428,29 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<Analysis | n
 
 export const getSession = async (input: GetSessionInput): Promise<Session | null> => {
   return defaultRepo.getSession(input.sessionId)
+}
+
+export const setPointers = async (input: SetPointersInput): Promise<void> => {
+  const patch: AnalysisPointers = {
+    ...(input.gcsExtractJson ? { gcsExtractJson: input.gcsExtractJson } : {}),
+    ...(input.gcsAnalysisJson ? { gcsAnalysisJson: input.gcsAnalysisJson } : {}),
+    ...(input.gcsReportHtml ? { gcsReportHtml: input.gcsReportHtml } : {})
+  }
+  await defaultRepo.setPointers(input.analysisId, patch)
+}
+
+export const saveConversationTurn = async (
+  input: SaveConversationTurnInput
+): Promise<ConversationTurn> => {
+  const turn: ConversationTurn = {
+    turnId: input.turnId,
+    role: input.role,
+    type: input.type,
+    content: input.content,
+    ...(input.refs ? { refs: input.refs } : {}),
+    createdAt: nowIso()
+  }
+
+  await defaultRepo.saveConversationTurn(input.analysisId, turn)
+  return turn
 }
