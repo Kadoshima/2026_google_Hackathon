@@ -12,7 +12,15 @@ import { makeId } from '../../utils/ids.js'
 
 export const registerUploadRoutes = (app: Hono) => {
   app.post('/upload', async (c) => {
-    const body = await c.req.parseBody({ all: true })
+    let body: Awaited<ReturnType<typeof c.req.parseBody>>
+    try {
+      body = await c.req.parseBody({ all: true })
+    } catch {
+      return c.json(
+        buildError('INVALID_INPUT', 'invalid multipart body'),
+        400
+      )
+    }
     const fileValue = takeFirst(body.file)
 
     if (!isUploadedFile(fileValue)) {
@@ -58,7 +66,10 @@ export const registerUploadRoutes = (app: Hono) => {
 
       await createSession({
         sessionId,
-        clientTokenHash: c.req.header('x-client-token-hash') ?? 'anonymous',
+        clientTokenHash:
+          c.req.header('x-client-token-hash') ??
+          c.req.header('x-client-token') ??
+          'anonymous',
         retentionPolicy,
         ...(metadataResult.value.language
           ? { language: metadataResult.value.language }

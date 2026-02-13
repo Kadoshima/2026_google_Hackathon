@@ -69,11 +69,8 @@ class ApiClient {
 
   // POST request (FormData)
   async postForm<T>(url: string, formData: FormData): Promise<T> {
-    const response = await this.client.post<T>(url, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Let the browser set multipart boundary automatically.
+    const response = await this.client.post<T>(url, formData);
     return response.data;
   }
 
