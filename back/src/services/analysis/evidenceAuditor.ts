@@ -47,11 +47,12 @@ const auditEvidence = async (
       }))
       .sort((left, right) => right.score - left.score)
 
-    const strongMatches = scored.filter((item) => item.score >= 0.34)
-    const paragraphIds = strongMatches.slice(0, 3).map((item) => item.paragraphId)
+    const supportMatches = scored.filter((item) => item.score >= 0.22)
+    const strongMatchCount = scored.filter((item) => item.score >= 0.4).length
+    const paragraphIds = supportMatches.slice(0, 3).map((item) => item.paragraphId)
     const bestScore = scored[0]?.score ?? 0
 
-    if (paragraphIds.length === 0) {
+    if (paragraphIds.length === 0 || bestScore < 0.3) {
       risks.push({
         claimId: claim.claimId,
         severity: 'HIGH',
@@ -61,23 +62,23 @@ const auditEvidence = async (
       continue
     }
 
-    if (bestScore < 0.45 || paragraphIds.length === 1) {
+    if (strongMatchCount < 2 || paragraphIds.length === 1) {
       risks.push({
         claimId: claim.claimId,
         severity: 'MEDIUM',
         paragraphIds,
         reason:
-          'Evidence coverage is weak: claim wording only partially aligns with a small set of paragraphs.'
+          'Evidence coverage is weak: the claim is supported by too few strong paragraphs.'
       })
       continue
     }
 
-    if (bestScore < 0.62) {
+    if (bestScore < 0.7 || paragraphIds.length < 3) {
       risks.push({
         claimId: claim.claimId,
         severity: 'LOW',
         paragraphIds,
-        reason: 'Evidence exists, but stronger and more explicit support is recommended.'
+        reason: 'Evidence exists, but support density is low and should be strengthened.'
       })
     }
   }

@@ -54,6 +54,22 @@ export type AnalysisSummary = {
       citation_keys?: string[]
     }
   }>
+  claim_evidence?: Array<{
+    claim_id: string
+    claim_text: string
+    paragraph_ids: string[]
+    severity: 'LOW' | 'MEDIUM' | 'HIGH'
+    reason: string
+  }>
+  logic_risks?: Array<{
+    claim_id: string
+    severity: 'LOW' | 'MEDIUM' | 'HIGH'
+    reason: string
+  }>
+  preflight_summary?: {
+    error_count: number
+    warning_count: number
+  }
   metrics?: {
     no_evidence_claims?: number
     weak_evidence_claims?: number

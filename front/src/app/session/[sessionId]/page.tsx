@@ -170,7 +170,9 @@ export default function SessionPage() {
   })
 
   useEffect(() => {
-    setTodos((prev) => (prev.length > 0 ? prev : buildTodosFromAnalysis(analysisQuery.data)))
+    setTodos((prev) =>
+      prev.length > 0 ? prev : buildTodosFromAnalysis(analysisQuery.data)
+    )
   }, [analysisQuery.data])
 
   const patchMutation = useMutation({
@@ -264,7 +266,11 @@ export default function SessionPage() {
 
       <TabBar activeTab={activeTab} onSelect={(tab) => router.replace(`/session/${sessionId}?tab=${tab}`)} />
 
-      {activeTab === 'summary' && <SummaryTab analysis={analysisQuery.data} />}
+      {activeTab === 'summary' && (
+        <SummaryTab
+          analysis={analysisQuery.data}
+        />
+      )}
       {activeTab === 'evidence' && (
         <EvidenceTab claims={claims} selectedClaim={selectedClaim} onSelectClaim={setSelectedClaim} />
       )}
@@ -320,7 +326,9 @@ export default function SessionPage() {
           onGenerate={() => reportMutation.mutate()}
         />
       )}
-      {activeTab === 'preflight' && <PreflightTab analysis={analysisQuery.data} />}
+      {activeTab === 'preflight' && (
+        <PreflightTab analysis={analysisQuery.data} />
+      )}
       {activeTab === 'heatmap' && (
         <TextHeatmapViewer
           text={heatmapText}
@@ -357,9 +365,14 @@ function TabBar({
   )
 }
 
-function SummaryTab({ analysis }: { analysis: AnalysisResponse | undefined }) {
+function SummaryTab({
+  analysis
+}: {
+  analysis: AnalysisResponse | undefined
+}) {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
   const risks = summary?.top3_risks ?? []
+  const claimEvidence = summary?.claim_evidence ?? []
   const metrics = summary?.metrics
 
   return (
@@ -370,6 +383,11 @@ function SummaryTab({ analysis }: { analysis: AnalysisResponse | undefined }) {
           {risks.length === 0 && (
             <p className="text-sm text-gray-500">
               解析が進むと、ここに優先度の高いリスクが表示されます。
+            </p>
+          )}
+          {risks.length === 0 && claimEvidence.length > 0 && (
+            <p className="text-sm text-emerald-700">
+              重大リスクは検出されませんでした（解析対象 claim: {claimEvidence.length}件）。
             </p>
           )}
           {risks.map((risk, index) => (
@@ -522,6 +540,7 @@ function ReportTab({
 function PreflightTab({ analysis }: { analysis: AnalysisResponse | undefined }) {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
   const metrics = summary?.metrics
+  const preflightSummary = summary?.preflight_summary
 
   return (
     <Card>
@@ -533,6 +552,12 @@ function PreflightTab({ analysis }: { analysis: AnalysisResponse | undefined }) 
             <p>- no evidence claims: {metrics.no_evidence_claims ?? '-'}</p>
             <p>- weak evidence claims: {metrics.weak_evidence_claims ?? '-'}</p>
             <p>- specificity lack: {metrics.specificity_lack ?? '-'}</p>
+          </>
+        )}
+        {preflightSummary && (
+          <>
+            <p>- preflight errors: {preflightSummary.error_count ?? 0}</p>
+            <p>- preflight warnings: {preflightSummary.warning_count ?? 0}</p>
           </>
         )}
       </div>
@@ -576,6 +601,24 @@ function mapAnalysisStatusToSessionStatus(
 
 function buildClaims(analysis: AnalysisResponse | undefined): ClaimEvidence[] {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const claimEvidence = summary?.claim_evidence ?? []
+
+  if (claimEvidence.length > 0) {
+    return claimEvidence.map((risk, index) => {
+      return {
+        claim_id: risk.claim_id,
+        claim_text: risk.claim_text ?? `Claim ${index + 1}`,
+        location: { snippet: risk.reason },
+        evidence: risk.paragraph_ids.map((id) => ({
+          type: 'citation',
+          ref_id: id
+        })),
+        strength:
+          risk.severity === 'HIGH' ? 'none' : risk.severity === 'MEDIUM' ? 'weak' : 'moderate'
+      }
+    })
+  }
+
   const risks = summary?.top3_risks ?? []
 
   if (risks.length === 0) return []
@@ -594,6 +637,18 @@ function buildClaims(analysis: AnalysisResponse | undefined): ClaimEvidence[] {
 
 function buildVaguePoints(analysis: AnalysisResponse | undefined): VaguePoint[] {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const logicRisks = summary?.logic_risks ?? []
+
+  if (logicRisks.length > 0) {
+    return logicRisks.map((risk, index) => ({
+      id: `logic_risk_${index + 1}`,
+      type: 'no_condition',
+      text: `${risk.claim_id}: ${risk.reason}`,
+      location: {},
+      suggestion: '数値・条件・比較対象を追記して主張を具体化してください'
+    }))
+  }
+
   const risks = summary?.top3_risks ?? []
 
   return risks.map((risk, index) => ({
@@ -613,6 +668,19 @@ function buildHeatmapText(claims: ClaimEvidence[]): string {
 function buildTodosFromAnalysis(analysis: AnalysisResponse | undefined): TodoItem[] {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
   const risks = summary?.top3_risks ?? []
+  const claimEvidence = summary?.claim_evidence ?? []
+
+  if (risks.length === 0 && claimEvidence.length > 0) {
+    return claimEvidence.slice(0, 5).map((claim, index) => ({
+      id: `todo_claim_${index + 1}`,
+      title: `Claim ${index + 1} の根拠を補強`,
+      description: claim.reason,
+      impact: claim.severity === 'HIGH' ? 5 : claim.severity === 'MEDIUM' ? 4 : 3,
+      effort: 2,
+      status: 'pending',
+      source: 'evidence'
+    }))
+  }
 
   if (risks.length === 0) return []
 

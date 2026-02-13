@@ -67,6 +67,8 @@ const buildSummary = async (
   } | undefined,
   analysisJsonPath: string | undefined
 ): Promise<AnalysisSummary | undefined> => {
+  const result = await readAnalysisResult(analysisJsonPath)
+
   const hasMetric = Boolean(
     metrics &&
       (metrics.noEvidenceClaimsCount !== undefined ||
@@ -74,9 +76,17 @@ const buildSummary = async (
         metrics.specificityLackCount !== undefined)
   )
 
-  const topRisks = await readTopRisks(analysisJsonPath)
+  const topRisks = toTopRisks(result)
+  const claimEvidence = toClaimEvidence(result)
+  const logicRisks = toLogicRisks(result)
+  const preflightSummary = toPreflightSummary(result)
 
-  if (!hasMetric && topRisks.length === 0) return undefined
+  const hasStructuredDetails =
+    claimEvidence.length > 0 ||
+    logicRisks.length > 0 ||
+    preflightSummary !== undefined
+
+  if (!hasMetric && topRisks.length === 0 && !hasStructuredDetails) return undefined
 
   const metricFields = metrics
     ? {
@@ -94,29 +104,91 @@ const buildSummary = async (
 
   return {
     ...(topRisks.length > 0 ? { top3_risks: topRisks } : {}),
+    ...(claimEvidence.length > 0 ? { claim_evidence: claimEvidence } : {}),
+    ...(logicRisks.length > 0 ? { logic_risks: logicRisks } : {}),
+    ...(preflightSummary ? { preflight_summary: preflightSummary } : {}),
     ...(Object.keys(metricFields).length > 0 ? { metrics: metricFields } : {})
   }
 }
 
-const readTopRisks = async (
+const readAnalysisResult = async (
   analysisJsonPath: string | undefined
-): Promise<NonNullable<AnalysisSummary['top3_risks']>> => {
-  if (!analysisJsonPath) return []
+): Promise<AnalysisResultJson | undefined> => {
+  if (!analysisJsonPath) return undefined
 
   try {
-    const result = await storageService.readJson<AnalysisResultJson>(analysisJsonPath)
-    const topRisks = result.summary?.topRisks ?? []
-    return topRisks.slice(0, 3).map((risk) => ({
-      title: risk.title,
-      refs: {
-        ...(risk.refs?.claimIds ? { claim_ids: risk.refs.claimIds } : {}),
-        ...(risk.refs?.paragraphIds ? { paragraph_ids: risk.refs.paragraphIds } : {}),
-        ...(risk.refs?.figureIds ? { figure_ids: risk.refs.figureIds } : {}),
-        ...(risk.refs?.citationKeys ? { citation_keys: risk.refs.citationKeys } : {})
-      }
-    }))
+    return await storageService.readJson<AnalysisResultJson>(analysisJsonPath)
   } catch {
-    return []
+    return undefined
+  }
+}
+
+const toTopRisks = (
+  result: AnalysisResultJson | undefined
+): NonNullable<AnalysisSummary['top3_risks']> => {
+  const topRisks = result?.summary?.topRisks ?? []
+  return topRisks.slice(0, 3).map((risk) => ({
+    title: risk.title,
+    refs: {
+      ...(risk.refs?.claimIds ? { claim_ids: risk.refs.claimIds } : {}),
+      ...(risk.refs?.paragraphIds ? { paragraph_ids: risk.refs.paragraphIds } : {}),
+      ...(risk.refs?.figureIds ? { figure_ids: risk.refs.figureIds } : {}),
+      ...(risk.refs?.citationKeys ? { citation_keys: risk.refs.citationKeys } : {})
+    }
+  }))
+}
+
+const toClaimEvidence = (
+  result: AnalysisResultJson | undefined
+): NonNullable<AnalysisSummary['claim_evidence']> => {
+  const claims = result?.claims ?? []
+  const evidenceRisks = result?.evidenceRisks ?? []
+  const riskByClaim = new Map(evidenceRisks.map((risk) => [risk.claimId, risk]))
+
+  if (claims.length > 0) {
+    return claims.map((claim) => {
+      const risk = riskByClaim.get(claim.claimId)
+      return {
+        claim_id: claim.claimId,
+        claim_text: claim.text,
+        paragraph_ids: risk?.paragraphIds ?? claim.paragraphIds,
+        severity: risk?.severity ?? 'LOW',
+        reason: risk?.reason ?? 'No major evidence risk was detected for this claim.'
+      }
+    })
+  }
+
+  return evidenceRisks.map((risk) => {
+    const claim = claims.find((item) => item.claimId === risk.claimId)
+    return {
+      claim_id: risk.claimId,
+      claim_text: claim?.text ?? risk.claimId,
+      paragraph_ids: risk.paragraphIds,
+      severity: risk.severity,
+      reason: risk.reason
+    }
+  })
+}
+
+const toLogicRisks = (
+  result: AnalysisResultJson | undefined
+): NonNullable<AnalysisSummary['logic_risks']> => {
+  if (!result?.logicRisks || result.logicRisks.length === 0) return []
+  return result.logicRisks.map((risk) => ({
+    claim_id: risk.claimId,
+    severity: risk.severity,
+    reason: risk.reason
+  }))
+}
+
+const toPreflightSummary = (
+  result: AnalysisResultJson | undefined
+): AnalysisSummary['preflight_summary'] | undefined => {
+  const summary = result?.preflight?.summary
+  if (!summary) return undefined
+  return {
+    error_count: summary.errorCount,
+    warning_count: summary.warningCount
   }
 }
 

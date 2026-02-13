@@ -160,16 +160,25 @@ export class AnalysisOrchestrator {
     extract: ExtractJson
   ): Array<{ claimId: string; text: string; paragraphIds: string[] }> {
     const source = extract.paragraphs
-      .filter((paragraph) => paragraph.text.trim().length >= 40)
+      .filter((paragraph) => paragraph.text.trim().length >= 12)
       .map((paragraph) => ({
         paragraphId: paragraph.id,
         text: normalizeClaimText(paragraph.text)
       }))
-      .filter((item) => item.text.length >= 30)
+      .filter((item) => item.text.length >= 12)
 
     const prioritized = source.filter((item) => looksLikeClaim(item.text))
     const fallback = source.filter((item) => !looksLikeClaim(item.text))
-    const merged = [...prioritized, ...fallback].slice(0, 12)
+    let merged = [...prioritized, ...fallback].slice(0, 12)
+    if (merged.length === 0) {
+      merged = extract.paragraphs
+        .map((paragraph) => ({
+          paragraphId: paragraph.id,
+          text: normalizeClaimText(paragraph.text)
+        }))
+        .filter((item) => item.text.length > 0)
+        .slice(0, 3)
+    }
 
     return merged.map((item, index) => ({
       claimId: `claim_${index + 1}`,

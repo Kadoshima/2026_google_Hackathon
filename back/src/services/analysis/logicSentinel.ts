@@ -31,6 +31,7 @@ const inspectLogic = async (
   for (const claim of input.claims) {
     const text = claim.text
     const lowered = text.toLowerCase()
+    const textLength = text.trim().length
 
     const hasNumber = /(?:\d+(\.\d+)?%?|\b[0-9]+\b)/.test(text)
     const hasVagueWord = matchesAny(lowered, VAGUE_PATTERNS)
@@ -55,6 +56,16 @@ const inspectLogic = async (
     if (impliesComparison && !hasComparator) {
       reasons.push('implies comparison but does not specify a clear baseline')
       severity = promoteSeverity(severity, 'MEDIUM')
+    }
+
+    if (!hasNumber && !hasCondition && !hasComparator) {
+      reasons.push('lacks quantitative, conditional, or baseline details')
+      severity = promoteSeverity(severity, 'LOW')
+    }
+
+    if (textLength < 45 && !hasNumber) {
+      reasons.push('claim statement is short and lacks quantitative detail')
+      severity = promoteSeverity(severity, 'LOW')
     }
 
     if (!severity) {
