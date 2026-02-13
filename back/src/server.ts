@@ -14,7 +14,12 @@ export const createApp = () => {
         if (origin.startsWith('http://localhost:')) return origin
         return origin
       },
-      allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Token-Hash'],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Client-Token-Hash',
+        'X-Client-Token'
+      ],
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       maxAge: 600
     })
