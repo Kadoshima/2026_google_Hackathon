@@ -21,7 +21,7 @@ export const registerAnalysisRoutes = (app: Hono) => {
       const base: AnalysisResponse = {
         analysis_id: analysis.analysisId,
         status: analysis.status,
-        progress: analysis.progress,
+        progress: normalizeProgress(analysis.progress),
         ...(analysis.step ? { step: analysis.step } : {}),
         ...(analysis.error?.messagePublic ? { message: analysis.error.messagePublic } : {})
       }
@@ -49,6 +49,11 @@ export const registerAnalysisRoutes = (app: Hono) => {
       )
     }
   })
+}
+
+const normalizeProgress = (progress: number): number => {
+  const value = progress <= 1 ? progress * 100 : progress
+  return Math.min(Math.max(value, 0), 100)
 }
 
 const buildSummary = (

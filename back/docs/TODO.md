@@ -166,33 +166,33 @@
 
 ## D. Worker実装（抽出→中間JSON保存→最低限の結果作成）
 
-* [ ] **BE-040：POST /internal/tasks/analysis（Cloud Tasks起動）**
+* [x] **BE-040：POST /internal/tasks/analysis（Cloud Tasks起動）**
   `./Implementation_details/BE-040.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-041：冪等性ロック（Firestoreトランザクションで二重実行防止）**
+* [x] **BE-041：冪等性ロック（Firestoreトランザクションで二重実行防止）**
   `./Implementation_details/BE-041.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-042：LaTeX ZIPの安全展開（zip-slip対策/許可拡張子制限）**
+* [x] **BE-042：LaTeX ZIPの安全展開（zip-slip対策/許可拡張子制限）**
   `./Implementation_details/BE-042.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-043：LatexExtractor（sections/paragraphs/figures/citations 最小抽出）**
+* [x] **BE-043：LatexExtractor（sections/paragraphs/figures/citations 最小抽出）**
   `./Implementation_details/BE-043.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-044：PdfExtractor（ベータ：テキスト抽出＋段落分割）**
+* [x] **BE-044：PdfExtractor（ベータ：テキスト抽出＋段落分割）**
   `./Implementation_details/BE-044.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-045：ExtractJson仕様の確定＆GCS保存（extract/{analysisId}/extract.json）**
+* [x] **BE-045：ExtractJson仕様の確定＆GCS保存（extract/{analysisId}/extract.json）**
   `./Implementation_details/BE-045.md`
-  担当者: 
+  担当者: 小川
 
-* [ ] **BE-046：Preflight最小（参照漏れ：図表/引用）検出**
+* [x] **BE-046：Preflight最小（参照漏れ：図表/引用）検出**
   `./Implementation_details/BE-046.md`
-  担当者: 
+  担当者: 小川
 
 ---
 

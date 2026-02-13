@@ -1,4 +1,4 @@
-import type { AnalysisStatus, AnalysisStep, RetentionMode } from './enums.js'
+import type { AnalysisStatus, AnalysisStep, InputType, RetentionMode } from './enums.js'
 
 export type RetentionPolicy = {
   mode: RetentionMode
@@ -60,4 +60,86 @@ export type ConversationTurn = {
   content: string
   refs?: ConversationRefs
   createdAt: Date | string
+}
+
+export type ExtractSection = {
+  id: string
+  title: string
+  level: number
+}
+
+export type ExtractParagraph = {
+  id: string
+  sectionId: string | null
+  text: string
+}
+
+export type ExtractFigure = {
+  id: string
+  label?: string
+  caption?: string
+  mentionedInParagraphIds: string[]
+}
+
+export type ExtractBibEntry = {
+  key: string
+  raw?: string
+}
+
+export type ExtractInTextCite = {
+  paragraphId: string
+  keys: string[]
+}
+
+export type ExtractCitations = {
+  bibEntries: ExtractBibEntry[]
+  inTextCites: ExtractInTextCite[]
+}
+
+export type ExtractMeta = {
+  extractor: string
+  warnings?: string[]
+  createdAt: string
+}
+
+export type ExtractJson = {
+  schemaVersion: 'v1'
+  analysisId: string
+  inputType: InputType
+  sections: ExtractSection[]
+  paragraphs: ExtractParagraph[]
+  figures: ExtractFigure[]
+  citations: ExtractCitations
+  meta?: ExtractMeta
+}
+
+export type PreflightFindingKind =
+  | 'MISSING_FIGURE_REFERENCE'
+  | 'UNKNOWN_FIGURE_REFERENCE'
+  | 'MISSING_BIB_ENTRY'
+  | 'UNCITED_BIB_ENTRY'
+
+export type PreflightFinding = {
+  id: string
+  kind: PreflightFindingKind
+  severity: 'error' | 'warning'
+  message: string
+  refs?: ConversationRefs
+}
+
+export type PreflightResult = {
+  findings: PreflightFinding[]
+  summary: {
+    errorCount: number
+    warningCount: number
+  }
+}
+
+export type AnalysisResultJson = {
+  schemaVersion: 'v1'
+  analysisId: string
+  preflight: PreflightResult
+  generatedAt: string
+  extractPath?: string
+  warnings?: string[]
 }
