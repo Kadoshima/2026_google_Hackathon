@@ -3,3 +3,5 @@ back/dist/
 **/.env
 **/.env.local
 golden-union-486611-r2-deb706568af6.json
+**/.npm-cache/**
+.DS_Store

@@ -12,17 +12,118 @@ import type {
 import type { Submission } from '../domain/submissions.js'
 import type { InputType, AnalysisStatus, AnalysisStep } from '../domain/enums.js'
 
-const projectId = process.env.GCP_PROJECT_ID
-const databaseId = process.env.FIRESTORE_DB
+type FirestoreDocSnapshot = { exists: boolean; data(): Record<string, unknown> | undefined }
 
-if (!projectId) {
-  throw new Error('GCP_PROJECT_ID is required')
+type FirestoreSetOptions = { merge?: boolean }
+
+type FirestoreDocRef = {
+  set(value: Record<string, unknown>, options?: FirestoreSetOptions): Promise<void>
+  update(patch: Record<string, unknown>): Promise<void>
+  get(): Promise<FirestoreDocSnapshot>
+  collection(name: string): FirestoreCollectionRef
 }
 
-export const firestore = new Firestore({
-  projectId,
-  ...(databaseId ? { databaseId } : {})
-})
+type FirestoreCollectionRef = {
+  doc(id: string): FirestoreDocRef
+}
+
+type FirestoreLike = {
+  collection(name: string): FirestoreCollectionRef
+}
+
+class MemoryFirestore implements FirestoreLike {
+  private readonly docs = new Map<string, Record<string, unknown>>()
+
+  collection(name: string): FirestoreCollectionRef {
+    return new MemoryCollectionRef(this.docs, [name])
+  }
+}
+
+class MemoryCollectionRef implements FirestoreCollectionRef {
+  constructor(
+    private readonly docs: Map<string, Record<string, unknown>>,
+    private readonly path: string[]
+  ) {}
+
+  doc(id: string): FirestoreDocRef {
+    return new MemoryDocRef(this.docs, [...this.path, id])
+  }
+}
+
+class MemoryDocRef implements FirestoreDocRef {
+  constructor(
+    private readonly docs: Map<string, Record<string, unknown>>,
+    private readonly path: string[]
+  ) {}
+
+  async set(value: Record<string, unknown>, options?: FirestoreSetOptions): Promise<void> {
+    const key = this.key()
+    if (options?.merge) {
+      const current = this.docs.get(key) ?? {}
+      this.docs.set(key, { ...current, ...value })
+      return
+    }
+
+    this.docs.set(key, { ...value })
+  }
+
+  async update(patch: Record<string, unknown>): Promise<void> {
+    const key = this.key()
+    const current = this.docs.get(key)
+    if (!current) {
+      throw new Error(`document not found: ${key}`)
+    }
+    this.docs.set(key, { ...current, ...patch })
+  }
+
+  async get(): Promise<FirestoreDocSnapshot> {
+    const key = this.key()
+    const current = this.docs.get(key)
+    return {
+      exists: Boolean(current),
+      data: () => current
+    }
+  }
+
+  collection(name: string): FirestoreCollectionRef {
+    return new MemoryCollectionRef(this.docs, [...this.path, name])
+  }
+
+  private key(): string {
+    return this.path.join('/')
+  }
+}
+
+const isProduction = process.env.NODE_ENV === 'production'
+const databaseId = process.env.FIRESTORE_DB
+const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST
+const projectId =
+  process.env.GCP_PROJECT_ID?.trim() ||
+  (emulatorHost ? 'local-emulator' : '')
+
+const shouldUseMemory =
+  process.env.FIRESTORE_MODE === 'memory' ||
+  (!projectId && !emulatorHost && !isProduction)
+
+export const firestore: FirestoreLike = shouldUseMemory
+  ? (() => {
+      console.warn(
+        JSON.stringify({
+          event: 'firestore_mode_memory',
+          reason: 'GCP_PROJECT_ID not set (and no emulator); using in-memory Firestore stub'
+        })
+      )
+      return new MemoryFirestore()
+    })()
+  : (() => {
+      if (!projectId) {
+        throw new Error('GCP_PROJECT_ID is required')
+      }
+      return new Firestore({
+        projectId,
+        ...(databaseId ? { databaseId } : {})
+      }) as unknown as FirestoreLike
+    })()
 
 export type CreateSessionInput = {
   sessionId: string
@@ -77,7 +178,7 @@ export type SaveConversationTurnInput = {
 }
 
 export type GetAnalysisInput = {
-    analysisId: string
+  analysisId: string
 }
 
 export type GetSessionInput = {
@@ -228,15 +329,15 @@ export const saveConversationTurn = async (
 }
 
 export const getAnalysis = async (
-    input: GetAnalysisInput
+  input: GetAnalysisInput
 ): Promise<Analysis | null> => {
-    const snap = await firestore.collection('analyses').doc(input.analysisId).get()
+  const snap = await firestore.collection('analyses').doc(input.analysisId).get()
 
-    if (!snap.exists) {
-        return null
-    }
+  if (!snap.exists) {
+    return null
+  }
 
-    return snap.data() as Analysis
+  return snap.data() as Analysis
 }
 
 export const getSession = async (
