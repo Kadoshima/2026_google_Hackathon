@@ -1,14 +1,18 @@
 import type { Hono } from 'hono'
 import type { OralAskRequest } from 'shared'
+import type { AnalysisResultJson } from '../../domain/types.js'
 import { RetentionMode } from '../../domain/enums.js'
 import {
   getAnalysis,
   getSession,
   saveConversationTurn
 } from '../../services/firestore.repo.js'
+import { StorageService } from '../../services/storage.service.js'
 import { nextQuestion } from '../../services/oralDefense/oralExaminer.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+
+const storageService = new StorageService()
 
 export const registerOralRoutes = (app: Hono) => {
   app.post('/oral/ask', async (c) => {
@@ -30,10 +34,12 @@ export const registerOralRoutes = (app: Hono) => {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 
+      const llmInput = await buildOralLlmInput(analysis, parsed.value.context?.focus_claim_id)
       const response = await nextQuestion(
         parsed.value.analysis_id,
         parsed.value.context,
-        parsed.value.user_answer
+        parsed.value.user_answer,
+        llmInput
       )
 
       const shouldSave = await shouldPersistConversation(analysis.sessionId)
@@ -51,6 +57,33 @@ export const registerOralRoutes = (app: Hono) => {
       )
     }
   })
+}
+
+const buildOralLlmInput = async (
+  analysis: NonNullable<Awaited<ReturnType<typeof getAnalysis>>>,
+  focusClaimId: string | undefined
+): Promise<{ focusClaimText?: string; extractedText?: string }> => {
+  const path = analysis.pointers?.gcsAnalysisJson
+  if (!path) return {}
+
+  try {
+    const result = await storageService.readJson<AnalysisResultJson>(path)
+    const claims = result.claims ?? []
+    const focusClaimText = focusClaimId
+      ? claims.find((claim) => claim.claimId === focusClaimId)?.text
+      : claims[0]?.text
+    const extractedText = claims
+      .slice(0, 12)
+      .map((claim) => `[${claim.claimId}] ${claim.text}`)
+      .join('\n')
+
+    return {
+      ...(focusClaimText ? { focusClaimText } : {}),
+      ...(extractedText ? { extractedText } : {})
+    }
+  } catch {
+    return {}
+  }
 }
 
 const shouldPersistConversation = async (sessionId: string): Promise<boolean> => {

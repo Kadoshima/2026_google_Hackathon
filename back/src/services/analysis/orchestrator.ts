@@ -9,6 +9,9 @@ import { auditEvidence } from './evidenceAuditor.js'
 import { inspectLogic } from './logicSentinel.js'
 import { proposePriorArtQueries } from './priorArtCoach.js'
 import { computeMetrics } from './scoring.js'
+import { runPrompt } from '../llm/vertex.client.js'
+import { buildClaimPrompt } from '../llm/prompts.js'
+import { claimOutputSchema } from '../llm/jsonSchemas.js'
 import { AppError, ErrorCodes } from '../../utils/errors.js'
 
 type OrchestratorDependencies = {
@@ -73,8 +76,9 @@ export class AnalysisOrchestrator {
       AnalysisStep.LOGIC
     )
 
-    const claims = this.buildClaimsFromExtract(extract)
-    const { preflight, warnings } = this.runPreflightSafely(extract)
+    const { claims, warnings: claimWarnings } = await this.buildClaimsWithLlmFallback(extract)
+    const { preflight, warnings: preflightWarnings } = this.runPreflightSafely(extract)
+    const warnings = [...claimWarnings, ...preflightWarnings]
 
     await this.repo.updateAnalysisStatus(
       analysisId,
@@ -185,6 +189,68 @@ export class AnalysisOrchestrator {
       text: item.text,
       paragraphIds: [item.paragraphId]
     }))
+  }
+
+  private async buildClaimsWithLlmFallback(
+    extract: ExtractJson
+  ): Promise<{
+    claims: Array<{ claimId: string; text: string; paragraphIds: string[] }>
+    warnings: string[]
+  }> {
+    const fallbackClaims = this.buildClaimsFromExtract(extract)
+    const paragraphIds = new Set(extract.paragraphs.map((paragraph) => paragraph.id))
+    const defaultParagraphId = extract.paragraphs[0]?.id
+
+    try {
+      const prompt = buildClaimPrompt({
+        extractedText: serializeExtractForLlm(extract),
+        maxClaims: 12
+      })
+      const output = await runPrompt(prompt, claimOutputSchema)
+      const normalized = output.claims
+        .slice(0, 12)
+        .map((claim, index) => {
+          const text = claim.text.trim().slice(0, 260)
+          const validParagraphIds = claim.paragraphIds.filter((id) => paragraphIds.has(id))
+          const resolvedParagraphIds =
+            validParagraphIds.length > 0
+              ? validParagraphIds
+              : fallbackClaims[index]?.paragraphIds ??
+                (defaultParagraphId ? [defaultParagraphId] : [])
+
+          return {
+            claimId: `claim_${index + 1}`,
+            text,
+            paragraphIds: resolvedParagraphIds
+          }
+        })
+        .filter((claim) => claim.text.length > 0)
+
+      if (normalized.length === 0) {
+        throw new Error('llm produced empty claim list')
+      }
+
+      console.info(
+        JSON.stringify({
+          event: 'llm_claim_extraction_success',
+          claimCount: normalized.length
+        })
+      )
+      return { claims: normalized, warnings: [] }
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          event: 'llm_claim_extraction_fallback',
+          reason: error instanceof Error ? error.message : 'unknown'
+        })
+      )
+      return {
+        claims: fallbackClaims,
+        warnings: [
+          `claim extraction via llm failed: ${error instanceof Error ? error.message : 'unknown'}`
+        ]
+      }
+    }
   }
 
   private buildTopRisks(input: {
@@ -302,3 +368,11 @@ const CLAIM_PATTERNS = [
   /\b(we show|we demonstrate|we propose|our method|results indicate|outperform|improve)\b/i,
   /(本研究|提案|示す|改善|有効|性能|結果|達成)/i
 ]
+
+const serializeExtractForLlm = (extract: ExtractJson): string => {
+  const maxParagraphs = 120
+  const lines = extract.paragraphs
+    .slice(0, maxParagraphs)
+    .map((paragraph) => `[${paragraph.id}] ${paragraph.text.replace(/\s+/g, ' ').trim()}`)
+  return lines.join('\n')
+}

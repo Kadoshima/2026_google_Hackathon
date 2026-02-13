@@ -1,16 +1,32 @@
 import type { OralAskRequest, OralAskResponse } from 'shared'
+import { runPrompt } from '../llm/vertex.client.js'
+import { buildOralPrompt } from '../llm/prompts.js'
+import { oralOutputSchema } from '../llm/jsonSchemas.js'
 
 export const nextQuestion = async (
   analysisId: string,
   context?: OralAskRequest['context'],
-  userAnswer?: string
+  userAnswer?: string,
+  llmInput?: {
+    focusClaimText?: string
+    extractedText?: string
+  }
 ): Promise<OralAskResponse> => {
-  void analysisId
-
   const focusClaimId = context?.focus_claim_id
-  const question = focusClaimId
+  const fallbackQuestion = focusClaimId
     ? `Claim ${focusClaimId} を支える実験条件と比較対象を、1文で具体化してください。`
     : 'Please summarize the core novelty of your claim in one sentence.'
+  const focusClaimText = llmInput?.focusClaimText ?? fallbackQuestion
+  const extractedText =
+    llmInput?.extractedText ??
+    `analysisId: ${analysisId}\nfocusClaimId: ${focusClaimId ?? '(none)'}`
+
+  const question = await buildQuestionWithLlmOrFallback({
+    focusClaimId: focusClaimId ?? 'claim_1',
+    focusClaimText,
+    extractedText,
+    fallbackQuestion
+  })
 
   const normalizedAnswer = userAnswer?.trim()
   if (!normalizedAnswer) {
@@ -44,5 +60,44 @@ export const nextQuestion = async (
           }
         }
       : {})
+  }
+}
+
+const buildQuestionWithLlmOrFallback = async (input: {
+  focusClaimId: string
+  focusClaimText: string
+  extractedText: string
+  fallbackQuestion: string
+}): Promise<string> => {
+  try {
+    const prompt = buildOralPrompt({
+      focusClaimId: input.focusClaimId,
+      focusClaimText: input.focusClaimText,
+      extractedText: input.extractedText
+    })
+    const output = await runPrompt(prompt, oralOutputSchema)
+    if (output.question.trim().length === 0) {
+      console.warn(
+        JSON.stringify({
+          event: 'llm_oral_question_fallback',
+          reason: 'empty question'
+        })
+      )
+      return input.fallbackQuestion
+    }
+    console.info(
+      JSON.stringify({
+        event: 'llm_oral_question_success'
+      })
+    )
+    return output.question.trim()
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: 'llm_oral_question_fallback',
+        reason: error instanceof Error ? error.message : 'unknown'
+      })
+    )
+    return input.fallbackQuestion
   }
 }
