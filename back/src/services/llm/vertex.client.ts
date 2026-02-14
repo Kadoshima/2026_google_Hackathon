@@ -76,7 +76,8 @@ async function defaultVertexTransport(
         }
       ],
       generationConfig: {
-        temperature: request.temperature
+        temperature: request.temperature,
+        responseMimeType: 'application/json'
       }
     }),
     signal
@@ -95,10 +96,12 @@ async function defaultVertexTransport(
     throw new Error('Vertex API returned empty candidate text')
   }
 
+  const normalizedText = normalizeJsonCandidateText(text)
   try {
-    return JSON.parse(normalizeJsonCandidateText(text)) as unknown
+    return JSON.parse(normalizedText) as unknown
   } catch {
-    throw new Error('Vertex API candidate is not valid JSON')
+    const preview = normalizedText.replace(/\s+/g, ' ').slice(0, 280)
+    throw new Error(`Vertex API candidate is not valid JSON (preview: ${preview})`)
   }
 }
 

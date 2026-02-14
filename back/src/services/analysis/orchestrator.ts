@@ -26,6 +26,17 @@ type RunOptions = {
 }
 
 type TopRisk = NonNullable<AnalysisResultJson['summary']>['topRisks'][number]
+const ANALYSIS_DEBUG_LOG = (process.env.ANALYSIS_DEBUG_LOG ?? '1') !== '0'
+
+const logAnalysisDebug = (event: string, fields: Record<string, unknown>): void => {
+  if (!ANALYSIS_DEBUG_LOG) return
+  console.info(
+    JSON.stringify({
+      event,
+      ...fields
+    })
+  )
+}
 
 export class AnalysisOrchestrator {
   private readonly repo: FirestoreRepo
@@ -54,6 +65,12 @@ export class AnalysisOrchestrator {
       })
     }
     const session = await this.repo.getSession(analysis.sessionId)
+    logAnalysisDebug('analysis_pipeline_start', {
+      analysisId,
+      sessionId: analysis.sessionId,
+      submissionId: analysis.submissionId,
+      inputType: submission.inputType
+    })
 
     await this.repo.updateAnalysisStatus(
       analysisId,
@@ -63,7 +80,21 @@ export class AnalysisOrchestrator {
     )
 
     const rawBuffer = await this.storage.readAsBuffer(submission.gcsPathRaw)
+    logAnalysisDebug('analysis_raw_loaded', {
+      analysisId,
+      rawBytes: rawBuffer.length
+    })
     const extract = await this.runExtractor(submission.inputType, rawBuffer, analysisId)
+    logAnalysisDebug('analysis_extract_built', {
+      analysisId,
+      sections: extract.sections.length,
+      paragraphs: extract.paragraphs.length,
+      figures: extract.figures.length,
+      bibEntries: extract.citations.bibEntries.length,
+      inTextCites: extract.citations.inTextCites.length,
+      extractor: extract.meta?.extractor ?? 'unknown',
+      extractWarnings: extract.meta?.warnings?.length ?? 0
+    })
 
     const extractObjectPath = `extract/${analysisId}/extract.json`
     const extractGsPath = await this.storage.putJson(extractObjectPath, extract)
@@ -79,6 +110,13 @@ export class AnalysisOrchestrator {
     const { claims, warnings: claimWarnings } = await this.buildClaimsWithLlmFallback(extract)
     const { preflight, warnings: preflightWarnings } = this.runPreflightSafely(extract)
     const warnings = [...claimWarnings, ...preflightWarnings]
+    logAnalysisDebug('analysis_claims_preflight_ready', {
+      analysisId,
+      claims: claims.length,
+      preflightErrors: preflight.summary.errorCount,
+      preflightWarnings: preflight.summary.warningCount,
+      pipelineWarnings: warnings.length
+    })
 
     await this.repo.updateAnalysisStatus(
       analysisId,
@@ -94,6 +132,13 @@ export class AnalysisOrchestrator {
         text: paragraph.text
       }))
     })
+    logAnalysisDebug('analysis_evidence_done', {
+      analysisId,
+      risks: evidenceResult.risks.length,
+      high: evidenceResult.risks.filter((risk) => risk.severity === 'HIGH').length,
+      medium: evidenceResult.risks.filter((risk) => risk.severity === 'MEDIUM').length,
+      low: evidenceResult.risks.filter((risk) => risk.severity === 'LOW').length
+    })
 
     await this.repo.updateAnalysisStatus(
       analysisId,
@@ -102,6 +147,13 @@ export class AnalysisOrchestrator {
       AnalysisStep.LOGIC
     )
     const logicResult = await inspectLogic({ analysisId, claims })
+    logAnalysisDebug('analysis_logic_done', {
+      analysisId,
+      risks: logicResult.risks.length,
+      high: logicResult.risks.filter((risk) => risk.severity === 'HIGH').length,
+      medium: logicResult.risks.filter((risk) => risk.severity === 'MEDIUM').length,
+      low: logicResult.risks.filter((risk) => risk.severity === 'LOW').length
+    })
 
     await this.repo.updateAnalysisStatus(
       analysisId,
@@ -113,6 +165,10 @@ export class AnalysisOrchestrator {
       analysisId,
       claims,
       ...(session?.domainTag ? { domainTag: session.domainTag } : {})
+    })
+    logAnalysisDebug('analysis_prior_art_done', {
+      analysisId,
+      queryCount: priorArtResult.queries.length
     })
 
     const metrics = computeMetrics({
@@ -128,6 +184,10 @@ export class AnalysisOrchestrator {
       }))
     })
     await this.repo.setMetrics(analysisId, metrics)
+    logAnalysisDebug('analysis_metrics_done', {
+      analysisId,
+      metrics
+    })
 
     const topRisks = this.buildTopRisks({
       evidenceRisks: evidenceResult.risks,
@@ -155,6 +215,11 @@ export class AnalysisOrchestrator {
     const resultObjectPath = `analysis/${analysisId}/result.json`
     const resultGsPath = await this.storage.putJson(resultObjectPath, result)
     await this.repo.setPointers(analysisId, { gcsAnalysisJson: resultGsPath })
+    logAnalysisDebug('analysis_result_saved', {
+      analysisId,
+      resultPath: resultGsPath,
+      topRisks: topRisks.length
+    })
 
     await this.repo.updateAnalysisStatus(analysisId, AnalysisStatus.READY, 100, AnalysisStep.FINALIZE)
     return result
@@ -205,6 +270,10 @@ export class AnalysisOrchestrator {
       const prompt = buildClaimPrompt({
         extractedText: serializeExtractForLlm(extract),
         maxClaims: 12
+      })
+      logAnalysisDebug('llm_claim_extraction_request', {
+        promptChars: prompt.length,
+        paragraphs: extract.paragraphs.length
       })
       const output = await runPrompt(prompt, claimOutputSchema)
       const normalized = output.claims
