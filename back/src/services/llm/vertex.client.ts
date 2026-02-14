@@ -96,7 +96,7 @@ async function defaultVertexTransport(
   }
 
   try {
-    return JSON.parse(text) as unknown
+    return JSON.parse(normalizeJsonCandidateText(text)) as unknown
   } catch {
     throw new Error('Vertex API candidate is not valid JSON')
   }
@@ -294,4 +294,27 @@ const extractCandidateText = (payload: unknown): string => {
   }
 
   return text
+}
+
+const normalizeJsonCandidateText = (text: string): string => {
+  const trimmed = text.trim()
+
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
+  if (fenced && fenced[1]) {
+    return fenced[1].trim()
+  }
+
+  const objectStart = trimmed.indexOf('{')
+  const objectEnd = trimmed.lastIndexOf('}')
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    return trimmed.slice(objectStart, objectEnd + 1).trim()
+  }
+
+  const arrayStart = trimmed.indexOf('[')
+  const arrayEnd = trimmed.lastIndexOf(']')
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    return trimmed.slice(arrayStart, arrayEnd + 1).trim()
+  }
+
+  return trimmed
 }
