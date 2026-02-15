@@ -6,7 +6,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
   FileText,
-  MessageSquare,
   RefreshCw,
   Shield,
   Sparkles
@@ -230,6 +229,7 @@ export default function SessionPage() {
   const activeAnalysisStatus = analysisQuery.data?.status ?? 'QUEUED'
   const activeProgress = analysisQuery.data?.progress ?? 0
   const activeMessage = analysisQuery.data?.message
+  const oralReady = activeAnalysisStatus === 'READY'
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -276,8 +276,23 @@ export default function SessionPage() {
       )}
       {activeTab === 'oral' && (
         <OralTab
+          analysisStatus={activeAnalysisStatus}
           messages={messages}
           isLoading={oralMutation.isPending}
+          onStart={() => {
+            if (!oralReady) return
+            const starterPrompt = '口頭試問を開始してください。最初の重要質問を1つ出してください。'
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `user_start_${Date.now()}`,
+                type: 'user_answer',
+                content: '口頭試問を開始してください',
+                timestamp: new Date().toISOString()
+              }
+            ])
+            oralMutation.mutate(starterPrompt)
+          }}
           onSend={(answer) => {
             setMessages((prev) => [
               ...prev,
@@ -323,6 +338,7 @@ export default function SessionPage() {
         <ReportTab
           reportState={reportState}
           isGenerating={reportMutation.isPending}
+          canGenerate={activeAnalysisStatus === 'READY'}
           onGenerate={() => reportMutation.mutate()}
         />
       )}
@@ -377,6 +393,25 @@ function SummaryTab({
 
   return (
     <div className="space-y-4">
+      <div className="grid md:grid-cols-3 gap-3">
+        <Card>
+          <p className="text-xs text-gray-500">Claim数</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">{claimEvidence.length}</p>
+        </Card>
+        <Card>
+          <p className="text-xs text-gray-500">重大リスク</p>
+          <p className="text-2xl font-semibold text-red-700 mt-1">
+            {claimEvidence.filter((claim) => claim.severity === 'HIGH').length}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs text-gray-500">Preflight問題</p>
+          <p className="text-2xl font-semibold text-amber-700 mt-1">
+            {(summary?.preflight_summary?.error_count ?? 0) + (summary?.preflight_summary?.warning_count ?? 0)}
+          </p>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader title="致命傷 Top3" subtitle="Rejectリスクの高い順に表示" icon={<AlertCircle className="w-5 h-5 text-red-600" />} />
         <div className="space-y-3">
@@ -439,6 +474,11 @@ function EvidenceTab({
       />
       <Card>
         <CardHeader title="Claim Detail Drawer" subtitle="選択したClaimの詳細" icon={<Shield className="w-5 h-5 text-indigo-600" />} />
+        {claims.length === 0 && (
+          <p className="text-sm text-gray-600">
+            解析結果から claim を抽出できませんでした。Summary タブの警告を確認し、抽出設定を見直してください。
+          </p>
+        )}
         {!selectedClaim && (
           <p className="text-sm text-gray-500">テーブルから claim を選択してください。</p>
         )}
@@ -459,16 +499,37 @@ function EvidenceTab({
 }
 
 function OralTab({
+  analysisStatus,
   messages,
+  onStart,
   onSend,
   isLoading
 }: {
+  analysisStatus: AnalysisResponse['status']
   messages: ChatMessage[]
+  onStart: () => void
   onSend: (value: string) => void
   isLoading: boolean
 }) {
+  const canStart = analysisStatus === 'READY'
+
   return (
-    <ChatThread messages={messages} onSendMessage={onSend} isLoading={isLoading} />
+    <div className="space-y-3">
+      {!canStart && (
+        <Card>
+          <p className="text-sm text-amber-700">
+            口頭試問は解析完了後に開始できます。現在ステータス: {analysisStatus}
+          </p>
+        </Card>
+      )}
+      <ChatThread
+        messages={messages}
+        onStart={onStart}
+        canStart={canStart}
+        onSendMessage={onSend}
+        isLoading={isLoading}
+      />
+    </div>
   )
 }
 
@@ -505,19 +566,26 @@ function TodoTab({
 function ReportTab({
   reportState,
   isGenerating,
+  canGenerate,
   onGenerate
 }: {
   reportState: { reportId?: string; reportUrl?: string; error?: string }
   isGenerating: boolean
+  canGenerate: boolean
   onGenerate: () => void
 }) {
   return (
     <Card>
       <CardHeader title="Report" subtitle="生成 -> 閲覧 -> ダウンロード" icon={<FileText className="w-5 h-5 text-indigo-600" />} />
       <div className="space-y-3">
-        <Button onClick={onGenerate} isLoading={isGenerating}>
+        <Button onClick={onGenerate} isLoading={isGenerating} disabled={!canGenerate}>
           レポート生成
         </Button>
+        {!canGenerate && (
+          <p className="text-xs text-amber-700">
+            解析完了後にレポート生成できます。
+          </p>
+        )}
         {reportState.error && <p className="text-sm text-red-700">{reportState.error}</p>}
         {reportState.reportId && (
           <p className="text-sm text-gray-700">report_id: {reportState.reportId}</p>

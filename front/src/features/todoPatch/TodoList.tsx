@@ -45,7 +45,7 @@ export function TodoList({ todos, onAccept, onReject, onGeneratePatch }: TodoLis
         title="ToDo & Patch"
         subtitle={`${acceptedCount}件採用 / ${pendingCount}件未対応`}
         action={
-          <Button size="sm" onClick={onGeneratePatch}>
+          <Button size="sm" onClick={onGeneratePatch} disabled={acceptedCount === 0}>
             <Download className="w-4 h-4 mr-2" />
             パッチ生成
           </Button>
@@ -59,18 +59,25 @@ export function TodoList({ todos, onAccept, onReject, onGeneratePatch }: TodoLis
             <p>ToDoがありません</p>
           </div>
         ) : (
-          todos.map((todo) => (
-            <TodoItemCard
-              key={todo.id}
-              todo={todo}
-              isExpanded={expandedTodos.has(todo.id)}
-              showDiff={showDiff === todo.id}
-              onToggle={() => toggleExpand(todo.id)}
-              onAccept={() => onAccept(todo.id)}
-              onReject={() => onReject(todo.id)}
-              onToggleDiff={() => setShowDiff(showDiff === todo.id ? null : todo.id)}
-            />
-          ))
+          <>
+            {acceptedCount === 0 && (
+              <p className="text-xs text-amber-700 px-1">
+                パッチ生成するには、ToDoを1件以上「採用」にしてください。
+              </p>
+            )}
+            {todos.map((todo) => (
+              <TodoItemCard
+                key={todo.id}
+                todo={todo}
+                isExpanded={expandedTodos.has(todo.id)}
+                showDiff={showDiff === todo.id}
+                onToggle={() => toggleExpand(todo.id)}
+                onAccept={() => onAccept(todo.id)}
+                onReject={() => onReject(todo.id)}
+                onToggleDiff={() => setShowDiff(showDiff === todo.id ? null : todo.id)}
+              />
+            ))}
+          </>
         )}
       </div>
     </Card>

@@ -93,7 +93,8 @@ export class AnalysisOrchestrator {
       bibEntries: extract.citations.bibEntries.length,
       inTextCites: extract.citations.inTextCites.length,
       extractor: extract.meta?.extractor ?? 'unknown',
-      extractWarnings: extract.meta?.warnings?.length ?? 0
+      extractWarnings: extract.meta?.warnings?.length ?? 0,
+      extractWarningPreview: extract.meta?.warnings?.slice(0, 3) ?? []
     })
 
     const extractObjectPath = `extract/${analysisId}/extract.json`

@@ -2,17 +2,25 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, Button } from '@/components/ui';
-import { Send, Bot, User, Lightbulb, CheckCircle } from 'lucide-react';
+import { Send, Bot, User, Lightbulb, CheckCircle, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types';
 
 interface ChatThreadProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onStart?: () => void;
+  canStart?: boolean;
   isLoading?: boolean;
 }
 
-export function ChatThread({ messages, onSendMessage, isLoading }: ChatThreadProps) {
+export function ChatThread({
+  messages,
+  onSendMessage,
+  onStart,
+  canStart = true,
+  isLoading
+}: ChatThreadProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,11 +51,34 @@ export function ChatThread({ messages, onSendMessage, isLoading }: ChatThreadPro
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-12 space-y-4">
             <Bot className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">
+            <p className="text-gray-600">
               「開始」ボタンを押して、口頭試問を始めましょう。
             </p>
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                onClick={onStart}
+                disabled={!onStart || !canStart || isLoading}
+              >
+                <PlayCircle className="w-4 h-4 mr-2" />
+                口頭試問を開始
+              </Button>
+            </div>
+            {!canStart && (
+              <p className="text-xs text-amber-700">
+                解析完了後に開始できます。
+              </p>
+            )}
+            <div className="text-left max-w-xl mx-auto rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold text-gray-700 mb-2">おすすめ質問</p>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>・この研究の新規性はどこですか？</li>
+                <li>・再現性を示すために何を追記すべき？</li>
+                <li>・最も弱い主張はどこで、どう補強する？</li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -73,7 +104,7 @@ export function ChatThread({ messages, onSendMessage, isLoading }: ChatThreadPro
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="回答を入力..."
+            placeholder={messages.length === 0 ? '開始後に質問へ回答できます' : '回答を入力...'}
             disabled={isLoading}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
           />
@@ -166,7 +197,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        <p className="text-xs text-gray-400 mt-2">
+        <p className={cn('text-xs mt-2', isAI || isDraft ? 'text-gray-500' : 'text-indigo-100')}>
           {new Date(message.timestamp).toLocaleTimeString('ja-JP')}
         </p>
       </div>

@@ -1,6 +1,6 @@
 import { GoogleAuth } from 'google-auth-library'
 
-export { runPrompt, setVertexTransport }
+export { runPrompt, runPromptWithParts, setVertexTransport }
 
 export type OutputSchema<T> =
   | { parse: (value: unknown) => T }
@@ -14,8 +14,21 @@ export type RunPromptOptions = {
   model?: string
 }
 
+export type VertexTextPart = {
+  text: string
+}
+
+export type VertexInlineDataPart = {
+  inlineData: {
+    mimeType: string
+    data: string
+  }
+}
+
+export type VertexUserPart = VertexTextPart | VertexInlineDataPart
+
 export type VertexRequest = {
-  prompt: string
+  parts: VertexUserPart[]
   model: string
   projectId: string
   location: string
@@ -72,7 +85,7 @@ async function defaultVertexTransport(
       contents: [
         {
           role: 'user',
-          parts: [{ text: request.prompt }]
+          parts: request.parts
         }
       ],
       generationConfig: {
@@ -114,6 +127,18 @@ const runPrompt = async <T>(
     throw new Error('prompt must not be empty')
   }
 
+  return runPromptWithParts([{ text: prompt }], schema, options)
+}
+
+const runPromptWithParts = async <T>(
+  parts: VertexUserPart[],
+  schema: OutputSchema<T>,
+  options: RunPromptOptions = {}
+): Promise<T> => {
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error('parts must not be empty')
+  }
+
   const resolved = resolveOptions(options)
   const projectId = process.env.VERTEX_PROJECT_ID ?? process.env.GCP_PROJECT_ID
   if (!projectId) {
@@ -121,7 +146,7 @@ const runPrompt = async <T>(
   }
 
   const request: VertexRequest = {
-    prompt,
+    parts,
     model: resolved.model,
     projectId,
     location: DEFAULT_LOCATION,
@@ -286,17 +311,19 @@ const extractCandidateText = (payload: unknown): string => {
     throw new Error('Vertex API candidate parts are missing')
   }
 
-  const part = parts[0]
-  if (!part || typeof part !== 'object' || Array.isArray(part)) {
-    throw new Error('Vertex API candidate part is invalid')
-  }
+  const textParts = parts
+    .map((part) => {
+      if (!part || typeof part !== 'object' || Array.isArray(part)) return ''
+      const text = (part as Record<string, unknown>).text
+      return typeof text === 'string' ? text : ''
+    })
+    .filter((text) => text.length > 0)
 
-  const text = (part as Record<string, unknown>).text
-  if (typeof text !== 'string') {
+  if (textParts.length === 0) {
     throw new Error('Vertex API candidate text is missing')
   }
 
-  return text
+  return textParts.join('\n')
 }
 
 const normalizeJsonCandidateText = (text: string): string => {
