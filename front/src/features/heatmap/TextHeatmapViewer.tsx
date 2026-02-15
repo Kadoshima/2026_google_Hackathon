@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, Badge } from '@/components/ui';
+import { Card, CardHeader } from '@/components/ui';
 import type { VaguePoint } from '@/types';
 import { AlertCircle, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -94,7 +94,12 @@ export function TextHeatmapViewer({ text, vaguePoints }: TextHeatmapViewerProps)
           >
             {filterConfig[type].label}
             {type !== 'all' && (
-              <span className="ml-1 text-gray-500">
+              <span
+                className={cn(
+                  'ml-1',
+                  activeFilter === type ? 'text-gray-100' : 'text-gray-500'
+                )}
+              >
                 ({vaguePoints.filter((p) => p.type === type).length})
               </span>
             )}

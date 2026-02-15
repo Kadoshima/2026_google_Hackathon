@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
 import { formatDate } from '@/lib/utils';
-import { FileText, X, Clock } from 'lucide-react';
+import { FileText, Clock } from 'lucide-react';
 
 export function SideNav() {
   const sessions = useAppStore((state) => state.sessions);

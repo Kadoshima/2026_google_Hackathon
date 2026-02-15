@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, Button, Badge } from '@/components/ui';
+import { Card, CardHeader, Button } from '@/components/ui';
 import type { TodoItem } from '@/types';
 import { 
   CheckCircle, 
   XCircle, 
   Clock, 
-  AlertCircle, 
   Edit3, 
   ChevronDown, 
   ChevronRight,

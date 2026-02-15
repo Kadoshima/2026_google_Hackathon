@@ -11,6 +11,8 @@ interface ChatThreadProps {
   onSendMessage: (message: string) => void;
   onStart?: () => void;
   canStart?: boolean;
+  onAddDraftToTodo?: (sentences: string[]) => void;
+  onAcceptDraft?: (sentences: string[]) => void;
   isLoading?: boolean;
 }
 
@@ -19,10 +21,13 @@ export function ChatThread({
   onSendMessage,
   onStart,
   canStart = true,
+  onAddDraftToTodo,
+  onAcceptDraft,
   isLoading
 }: ChatThreadProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInputDisabled = Boolean(isLoading) || (!canStart && messages.length === 0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,7 +39,7 @@ export function ChatThread({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
+    if (input.trim() && !isInputDisabled) {
       onSendMessage(input);
       setInput('');
     }
@@ -83,7 +88,12 @@ export function ChatThread({
         )}
 
         {messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
+          <MessageItem
+            key={message.id}
+            message={message}
+            onAddDraftToTodo={onAddDraftToTodo}
+            onAcceptDraft={onAcceptDraft}
+          />
         ))}
 
         {isLoading && (
@@ -105,10 +115,10 @@ export function ChatThread({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={messages.length === 0 ? '開始後に質問へ回答できます' : '回答を入力...'}
-            disabled={isLoading}
+            disabled={isInputDisabled}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
           />
-          <Button type="submit" disabled={isLoading || !input.trim()}>
+          <Button type="submit" disabled={isInputDisabled || !input.trim()}>
             <Send className="w-4 h-4" />
           </Button>
         </div>
@@ -117,7 +127,15 @@ export function ChatThread({
   );
 }
 
-function MessageItem({ message }: { message: ChatMessage }) {
+function MessageItem({
+  message,
+  onAddDraftToTodo,
+  onAcceptDraft
+}: {
+  message: ChatMessage
+  onAddDraftToTodo?: (sentences: string[]) => void
+  onAcceptDraft?: (sentences: string[]) => void
+}) {
   const isAI = message.type === 'ai_question' || message.type === 'ai_evaluation';
   const isDraft = message.type === 'draft';
 
@@ -185,11 +203,20 @@ function MessageItem({ message }: { message: ChatMessage }) {
               </div>
             ))}
             <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!onAddDraftToTodo || message.metadata.draft_sentences.length === 0}
+                onClick={() => onAddDraftToTodo?.(message.metadata?.draft_sentences ?? [])}
+              >
                 <CheckCircle className="w-4 h-4 mr-1" />
                 ToDoに追加
               </Button>
-              <Button size="sm">
+              <Button
+                onClick={() => onAcceptDraft?.(message.metadata?.draft_sentences ?? [])}
+                size="sm"
+                disabled={!onAcceptDraft || message.metadata.draft_sentences.length === 0}
+              >
                 <Lightbulb className="w-4 h-4 mr-1" />
                 採用
               </Button>

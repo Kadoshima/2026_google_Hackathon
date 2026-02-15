@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui';
 import { FileText, ArrowRight, Shield, MessageSquare, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
-  const router = useRouter();
   const { ensureClientToken, sessions } = useAppStore();
 
   useEffect(() => {

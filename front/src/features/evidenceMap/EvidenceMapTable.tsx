@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { Card, CardHeader, Badge } from '@/components/ui';
+import { Card, CardHeader } from '@/components/ui';
 import type { ClaimEvidence, Evidence } from '@/types';
 import { ChevronDown, ChevronRight, FileText, Link2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';

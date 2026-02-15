@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardHeader, Button, ProgressBar } from '@/components/ui';
-import { Play, FileText, MessageSquare, ArrowRight } from 'lucide-react';
+import { Play, MessageSquare } from 'lucide-react';
 
 const demoSteps = [
   {
@@ -29,7 +28,6 @@ const demoSteps = [
 ];
 
 export default function DemoPage() {
-  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 

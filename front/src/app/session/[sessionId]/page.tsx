@@ -74,7 +74,8 @@ export default function SessionPage() {
   const analysisId = activeSession?.analysis_id
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [todos, setTodos] = useState<TodoItem[]>([])
+  const [extraTodos, setExtraTodos] = useState<TodoItem[]>([])
+  const [todoOverrides, setTodoOverrides] = useState<Record<string, TodoItem['status']>>({})
   const [selectedClaim, setSelectedClaim] = useState<ClaimEvidence | null>(null)
   const [reportState, setReportState] = useState<{
     reportId?: string
@@ -101,6 +102,33 @@ export default function SessionPage() {
     }
   })
 
+  const computedTodos = useMemo(
+    () => buildTodosFromAnalysis(analysisQuery.data),
+    [analysisQuery.data]
+  )
+
+  const todos = useMemo(() => {
+    const merged: TodoItem[] = []
+    const seen = new Set<string>()
+
+    for (const todo of extraTodos) {
+      if (seen.has(todo.id)) continue
+      seen.add(todo.id)
+      merged.push(todo)
+    }
+
+    for (const todo of computedTodos) {
+      if (seen.has(todo.id)) continue
+      seen.add(todo.id)
+      merged.push(todo)
+    }
+
+    return merged.map((todo) => ({
+      ...todo,
+      status: todoOverrides[todo.id] ?? todo.status
+    }))
+  }, [computedTodos, extraTodos, todoOverrides])
+
   useEffect(() => {
     if (!analysisQuery.data || !activeSession) return
     const next = mapAnalysisStatusToSessionStatus(analysisQuery.data.status)
@@ -114,6 +142,74 @@ export default function SessionPage() {
       )
     )
   }, [activeSession, analysisQuery.data, setSessions, sessions])
+
+  const setTodoStatus = (todoId: string, status: TodoItem['status']) => {
+    setTodoOverrides((prev) => ({
+      ...prev,
+      [todoId]: status
+    }))
+  }
+
+  const addOralDraftTodos = (sentences: string[], autoAccept: boolean) => {
+    const normalized = sentences
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0)
+
+    if (normalized.length === 0) return
+
+    const nextIds = normalized.map((sentence) => `todo_oral_${hashText(sentence)}`)
+
+    setExtraTodos((prev) => {
+      const byId = new Map(prev.map((todo) => [todo.id, todo]))
+
+      normalized.forEach((sentence, index) => {
+        const todoId = nextIds[index]
+        if (!todoId) return
+
+        const current = byId.get(todoId)
+        if (current) {
+          byId.set(todoId, {
+            ...current,
+            title: current.title || sentence.slice(0, 60),
+            description: sentence,
+            ...(autoAccept ? { status: 'accepted' } : {})
+          })
+          return
+        }
+
+        byId.set(todoId, {
+          id: todoId,
+          title: sentence.slice(0, 60),
+          description: sentence,
+          impact: 4,
+          effort: 2,
+          status: autoAccept ? 'accepted' : 'pending',
+          source: 'oral'
+        })
+      })
+
+      const existingOrder = prev.map((todo) => todo.id)
+      const newIds = [...nextIds].reverse()
+      const ordered = [
+        ...newIds,
+        ...existingOrder.filter((id) => !newIds.includes(id))
+      ]
+
+      return ordered
+        .map((id) => byId.get(id))
+        .filter((todo): todo is TodoItem => Boolean(todo))
+    })
+
+    if (autoAccept) {
+      setTodoOverrides((prev) => {
+        const next = { ...prev }
+        nextIds.forEach((id) => {
+          next[id] = 'accepted'
+        })
+        return next
+      })
+    }
+  }
 
   const oralMutation = useMutation({
     mutationFn: async (answer: string): Promise<OralAskResponse> => {
@@ -167,12 +263,6 @@ export default function SessionPage() {
       ])
     }
   })
-
-  useEffect(() => {
-    setTodos((prev) =>
-      prev.length > 0 ? prev : buildTodosFromAnalysis(analysisQuery.data)
-    )
-  }, [analysisQuery.data])
 
   const patchMutation = useMutation({
     mutationFn: async () => {
@@ -279,6 +369,8 @@ export default function SessionPage() {
           analysisStatus={activeAnalysisStatus}
           messages={messages}
           isLoading={oralMutation.isPending}
+          onAddDraftToTodo={(sentences) => addOralDraftTodos(sentences, false)}
+          onAcceptDraft={(sentences) => addOralDraftTodos(sentences, true)}
           onStart={() => {
             if (!oralReady) return
             const starterPrompt = '口頭試問を開始してください。最初の重要質問を1つ出してください。'
@@ -311,18 +403,10 @@ export default function SessionPage() {
         <TodoTab
           todos={todos}
           onAccept={(todoId) =>
-            setTodos((prev) =>
-              prev.map((todo) =>
-                todo.id === todoId ? { ...todo, status: 'accepted' } : todo
-              )
-            )
+            setTodoStatus(todoId, 'accepted')
           }
           onReject={(todoId) =>
-            setTodos((prev) =>
-              prev.map((todo) =>
-                todo.id === todoId ? { ...todo, status: 'rejected' } : todo
-              )
-            )
+            setTodoStatus(todoId, 'rejected')
           }
           onGeneratePatch={() => patchMutation.mutate()}
           patchMessage={
@@ -501,12 +585,16 @@ function EvidenceTab({
 function OralTab({
   analysisStatus,
   messages,
+  onAddDraftToTodo,
+  onAcceptDraft,
   onStart,
   onSend,
   isLoading
 }: {
   analysisStatus: AnalysisResponse['status']
   messages: ChatMessage[]
+  onAddDraftToTodo: (sentences: string[]) => void
+  onAcceptDraft: (sentences: string[]) => void
   onStart: () => void
   onSend: (value: string) => void
   isLoading: boolean
@@ -526,6 +614,8 @@ function OralTab({
         messages={messages}
         onStart={onStart}
         canStart={canStart}
+        onAddDraftToTodo={onAddDraftToTodo}
+        onAcceptDraft={onAcceptDraft}
         onSendMessage={onSend}
         isLoading={isLoading}
       />
@@ -761,4 +851,12 @@ function buildTodosFromAnalysis(analysis: AnalysisResponse | undefined): TodoIte
     status: 'pending',
     source: 'evidence'
   }))
+}
+
+function hashText(input: string): string {
+  let hash = 0
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0
+  }
+  return hash.toString(36)
 }
