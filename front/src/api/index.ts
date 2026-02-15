@@ -1,6 +1,8 @@
 export { apiClient } from './client';
 export {
   uploadApi,
+  artifactApi,
+  capabilitiesApi,
   analysisApi,
   sessionApi,
   oralApi,

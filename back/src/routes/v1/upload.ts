@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import type { UploadMetadata, UploadResponse } from 'shared'
-import { InputType, RetentionMode } from '../../domain/enums.js'
+import { ArtifactType, InputType, RetentionMode } from '../../domain/enums.js'
 import type { RetentionPolicy } from '../../domain/types.js'
 import {
   createSession,
@@ -75,6 +75,16 @@ export const registerUploadRoutes = (app: Hono) => {
         400
       )
     }
+    const artifactType = metadataResult.value.artifactType ?? ArtifactType.PAPER
+    if (artifactType !== ArtifactType.PAPER) {
+      return c.json(
+        buildError(
+          'INVALID_INPUT',
+          `artifactType ${artifactType} is not supported by /v1/upload yet (currently PAPER only)`
+        ),
+        400
+      )
+    }
 
     const sessionId = makeId('sess')
     const submissionId = makeId('sub')
@@ -109,6 +119,7 @@ export const registerUploadRoutes = (app: Hono) => {
       await createSubmission({
         submissionId,
         sessionId,
+        artifactType,
         inputType,
         gcsPathRaw
       })
@@ -184,9 +195,14 @@ const parseMetadata = (value: unknown): ParseMetadataResult => {
   }
 
   const record = parsed as Record<string, unknown>
+  const artifactType = record.artifactType
   const language = record.language
   const domainTag = record.domainTag
   const retentionPolicy = record.retentionPolicy
+
+  if (artifactType !== undefined && !isArtifactType(artifactType)) {
+    return { ok: false, message: 'metadata.artifactType must be PAPER|PR|DOC|SHEET' }
+  }
 
   if (language !== undefined && typeof language !== 'string') {
     return { ok: false, message: 'metadata.language must be string' }
@@ -204,6 +220,7 @@ const parseMetadata = (value: unknown): ParseMetadataResult => {
   return {
     ok: true,
     value: {
+      ...(artifactType ? { artifactType } : {}),
       ...(language ? { language } : {}),
       ...(domainTag ? { domainTag } : {}),
       ...(parsedRetention.value ? { retentionPolicy: parsedRetention.value } : {})
@@ -241,4 +258,13 @@ const parseRetentionPolicy = (
       ...(ttlHours !== undefined ? { ttlHours } : {})
     }
   }
+}
+
+const isArtifactType = (value: unknown): value is ArtifactType => {
+  return (
+    value === ArtifactType.PAPER ||
+    value === ArtifactType.PR ||
+    value === ArtifactType.DOC ||
+    value === ArtifactType.SHEET
+  )
 }

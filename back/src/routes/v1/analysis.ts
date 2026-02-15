@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import type { AnalysisReadyResponse, AnalysisResponse, AnalysisSummary } from 'shared'
-import type { AnalysisResultJson } from '../../domain/types.js'
+import type { Analysis, AnalysisResultJson } from '../../domain/types.js'
 import { getAnalysis } from '../../services/firestore.repo.js'
 import { getSignedUrl, StorageService } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
@@ -21,15 +21,24 @@ export const registerAnalysisRoutes = (app: Hono) => {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 
+      const progressMessage = resolveProgressMessage(analysis)
       const base: AnalysisResponse = {
         analysis_id: analysis.analysisId,
         status: analysis.status,
         progress: normalizeProgress(analysis.progress),
         ...(analysis.step ? { step: analysis.step } : {}),
-        ...(analysis.error?.messagePublic ? { message: analysis.error.messagePublic } : {})
+        ...(progressMessage ? { message: progressMessage } : {})
       }
 
       if (analysis.status !== 'READY') {
+        const runtimeSummary = buildRuntimeSummaryFromAnalysis(analysis)
+        if (runtimeSummary) {
+          const inProgressResponse: AnalysisResponse = {
+            ...base,
+            summary: runtimeSummary
+          }
+          return c.json(inProgressResponse, 200)
+        }
         return c.json(base, 200)
       }
 
@@ -59,6 +68,22 @@ const normalizeProgress = (progress: number): number => {
   return Math.min(Math.max(value, 0), 100)
 }
 
+const resolveProgressMessage = (analysis: {
+  status: string
+  step?: string
+  error?: { messagePublic?: string }
+}): string | undefined => {
+  if (analysis.error?.messagePublic) return analysis.error.messagePublic
+  if (analysis.status === 'READY') return 'AIオーケストレーション完了'
+  if (analysis.status === 'FAILED') return 'AIオーケストレーション失敗'
+  if (analysis.step === 'extract') return 'Extractorが成果物を構造化しています'
+  if (analysis.step === 'evidence') return 'Evidence Auditorが主張と根拠を照合しています'
+  if (analysis.step === 'logic') return 'Claim Miner / Logic Sentinelが論点を解析しています'
+  if (analysis.step === 'prior_art') return 'Prior-Art Coachが比較観点を生成しています'
+  if (analysis.step === 'finalize') return 'Synthesizerが最終レポートを統合しています'
+  return analysis.status === 'QUEUED' ? 'Plannerが解析計画を準備しています' : undefined
+}
+
 const buildSummary = async (
   metrics: {
     noEvidenceClaimsCount?: number
@@ -77,11 +102,17 @@ const buildSummary = async (
   )
 
   const topRisks = toTopRisks(result)
+  const top3Risks = topRisks.slice(0, 3).map((risk) => ({
+    title: risk.title,
+    ...(risk.refs ? { refs: risk.refs } : {})
+  }))
+  const agents = toAgents(result)
   const claimEvidence = toClaimEvidence(result)
   const logicRisks = toLogicRisks(result)
   const preflightSummary = toPreflightSummary(result)
 
   const hasStructuredDetails =
+    agents.length > 0 ||
     claimEvidence.length > 0 ||
     logicRisks.length > 0 ||
     preflightSummary !== undefined
@@ -103,12 +134,22 @@ const buildSummary = async (
     : {}
 
   return {
-    ...(topRisks.length > 0 ? { top3_risks: topRisks } : {}),
+    ...(top3Risks.length > 0 ? { top3_risks: top3Risks } : {}),
+    ...(topRisks.length > 0 ? { top_risks: topRisks } : {}),
+    ...(agents.length > 0 ? { agents } : {}),
     ...(claimEvidence.length > 0 ? { claim_evidence: claimEvidence } : {}),
     ...(logicRisks.length > 0 ? { logic_risks: logicRisks } : {}),
     ...(preflightSummary ? { preflight_summary: preflightSummary } : {}),
     ...(Object.keys(metricFields).length > 0 ? { metrics: metricFields } : {})
   }
+}
+
+const buildRuntimeSummaryFromAnalysis = (
+  analysis: Analysis
+): AnalysisSummary | undefined => {
+  const agents = toAgentsFromTrace(analysis.agentTrace)
+  if (agents.length === 0) return undefined
+  return { agents }
 }
 
 const readAnalysisResult = async (
@@ -125,10 +166,12 @@ const readAnalysisResult = async (
 
 const toTopRisks = (
   result: AnalysisResultJson | undefined
-): NonNullable<AnalysisSummary['top3_risks']> => {
+): NonNullable<AnalysisSummary['top_risks']> => {
   const topRisks = result?.summary?.topRisks ?? []
-  return topRisks.slice(0, 3).map((risk) => ({
+  return topRisks.map((risk) => ({
     title: risk.title,
+    severity: risk.severity,
+    reason: risk.reason,
     refs: {
       ...(risk.refs?.claimIds ? { claim_ids: risk.refs.claimIds } : {}),
       ...(risk.refs?.paragraphIds ? { paragraph_ids: risk.refs.paragraphIds } : {}),
@@ -153,7 +196,7 @@ const toClaimEvidence = (
         claim_text: claim.text,
         paragraph_ids: risk?.paragraphIds ?? claim.paragraphIds,
         severity: risk?.severity ?? 'LOW',
-        reason: risk?.reason ?? 'No major evidence risk was detected for this claim.'
+        reason: risk?.reason ?? 'この主張に対する重大な根拠リスクは検出されませんでした。'
       }
     })
   }
@@ -190,6 +233,28 @@ const toPreflightSummary = (
     error_count: summary.errorCount,
     warning_count: summary.warningCount
   }
+}
+
+const toAgents = (
+  result: AnalysisResultJson | undefined
+): NonNullable<AnalysisSummary['agents']> => {
+  return toAgentsFromTrace(result?.agentTrace)
+}
+
+const toAgentsFromTrace = (
+  trace: AnalysisResultJson['agentTrace'] | Analysis['agentTrace']
+): NonNullable<AnalysisSummary['agents']> => {
+  const safeTrace = trace ?? []
+  return safeTrace.map((entry) => ({
+    agent_id: entry.agentId,
+    role: entry.role,
+    status: entry.status,
+    duration_ms: entry.durationMs,
+    summary: entry.summary,
+    ...(entry.highlights && entry.highlights.length > 0
+      ? { highlights: entry.highlights }
+      : {})
+  }))
 }
 
 const buildPointers = async (

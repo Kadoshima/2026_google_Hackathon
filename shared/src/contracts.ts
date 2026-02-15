@@ -1,4 +1,5 @@
 export type RetentionMode = 'NO_SAVE' | 'SAVE'
+export type ArtifactType = 'PAPER' | 'PR' | 'DOC' | 'SHEET'
 
 export type RetentionPolicy = {
   mode: RetentionMode
@@ -14,6 +15,7 @@ export type ApiError = {
 }
 
 export type UploadMetadata = {
+  artifactType?: ArtifactType
   language?: string
   domainTag?: string
   retentionPolicy?: RetentionPolicy
@@ -23,6 +25,32 @@ export type UploadResponse = {
   session_id: string
   submission_id: string
   upload_id: string
+}
+
+export type ArtifactContentFormat = 'plain' | 'markdown' | 'diff' | 'json'
+
+export type ArtifactCreateRequest = {
+  artifact_type: ArtifactType
+  content: string
+  title?: string
+  content_format?: ArtifactContentFormat
+  source_ref?: string
+  language?: string
+  domainTag?: string
+  retentionPolicy?: RetentionPolicy
+}
+
+export type ArtifactAdapterStatus = 'ready' | 'beta' | 'planned'
+
+export type CapabilitiesResponse = {
+  concept: 'comprehension_assurance'
+  explain_to_ship: true
+  artifact_adapters: Array<{
+    artifact_type: ArtifactType
+    status: ArtifactAdapterStatus
+    supported_inputs: string[]
+    key_checks: string[]
+  }>
 }
 
 export type AnalyzeRequest = {
@@ -54,6 +82,17 @@ export type AnalysisSummary = {
       citation_keys?: string[]
     }
   }>
+  top_risks?: Array<{
+    title: string
+    severity: 'LOW' | 'MEDIUM' | 'HIGH'
+    reason: string
+    refs?: {
+      claim_ids?: string[]
+      paragraph_ids?: string[]
+      figure_ids?: string[]
+      citation_keys?: string[]
+    }
+  }>
   claim_evidence?: Array<{
     claim_id: string
     claim_text: string
@@ -70,6 +109,22 @@ export type AnalysisSummary = {
     error_count: number
     warning_count: number
   }
+  agents?: Array<{
+    agent_id: string
+    role:
+      | 'PLANNER'
+      | 'EXTRACTOR'
+      | 'CLAIM_MINER'
+      | 'PREFLIGHT_GUARDIAN'
+      | 'EVIDENCE_AUDITOR'
+      | 'LOGIC_SENTINEL'
+      | 'PRIOR_ART_COACH'
+      | 'SYNTHESIZER'
+    status: 'DONE' | 'WARN' | 'SKIPPED'
+    duration_ms: number
+    summary: string
+    highlights?: string[]
+  }>
   metrics?: {
     no_evidence_claims?: number
     weak_evidence_claims?: number

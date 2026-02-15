@@ -2,6 +2,8 @@ import type {
   AnalyzeRequest,
   AnalyzeResponse,
   AnalysisResponse,
+  ArtifactCreateRequest,
+  CapabilitiesResponse,
   OralAskRequest,
   OralAskResponse,
   PatchGenerateRequest,
@@ -19,6 +21,18 @@ export const uploadApi = {
     formData.append('file', data.file)
     formData.append('metadata', JSON.stringify(data.metadata))
     return apiClient.postForm<UploadResponse>('/upload', formData)
+  }
+}
+
+export const artifactApi = {
+  create: async (data: ArtifactCreateRequest): Promise<UploadResponse> => {
+    return apiClient.post<UploadResponse>('/artifacts', data)
+  }
+}
+
+export const capabilitiesApi = {
+  get: async (): Promise<CapabilitiesResponse> => {
+    return apiClient.get<CapabilitiesResponse>('/capabilities')
   }
 }
 

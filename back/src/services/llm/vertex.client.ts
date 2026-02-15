@@ -53,6 +53,9 @@ const DEFAULT_MAX_RETRIES = Number(process.env.VERTEX_MAX_RETRIES ?? 2)
 const DEFAULT_RETRY_DELAY_MS = Number(process.env.VERTEX_RETRY_DELAY_MS ?? 300)
 const DEFAULT_TEMPERATURE = Number(process.env.VERTEX_TEMPERATURE ?? 0.2)
 const DEFAULT_MODEL = process.env.VERTEX_MODEL ?? 'gemini-2.0-flash-lite'
+const DEFAULT_FALLBACK_MODELS = parseCsv(
+  process.env.VERTEX_FALLBACK_MODELS ?? 'gemini-2.5-pro,gemini-2.0-flash-lite'
+)
 const DEFAULT_LOCATION = process.env.VERTEX_LOCATION ?? 'us-central1'
 const VERTEX_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
 
@@ -145,34 +148,52 @@ const runPromptWithParts = async <T>(
     throw new Error('VERTEX_PROJECT_ID or GCP_PROJECT_ID is required')
   }
 
-  const request: VertexRequest = {
-    parts,
-    model: resolved.model,
-    projectId,
-    location: DEFAULT_LOCATION,
-    temperature: resolved.temperature
-  }
-
-  let lastError: unknown = null
   const maxAttempts = resolved.maxRetries + 1
+  const modelCandidates = resolveModelCandidates(resolved.model)
+  const modelErrors: string[] = []
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const raw = await withTimeout(resolved.timeoutMs, (signal) =>
-        vertexTransport(request, signal)
-      )
-      return applySchema(schema, raw)
-    } catch (error) {
-      lastError = error
-      if (!shouldRetry(error) || attempt === maxAttempts) {
-        break
-      }
-      await sleep(backoffMs(resolved.retryDelayMs, attempt))
+  for (const model of modelCandidates) {
+    const request: VertexRequest = {
+      parts,
+      model,
+      projectId,
+      location: DEFAULT_LOCATION,
+      temperature: resolved.temperature
     }
+
+    let lastError: unknown = null
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const raw = await withTimeout(resolved.timeoutMs, (signal) =>
+          vertexTransport(request, signal)
+        )
+        return applySchema(schema, raw)
+      } catch (error) {
+        lastError = error
+        if (isModelUnavailableError(error)) {
+          console.warn(
+            JSON.stringify({
+              event: 'llm_model_fallback',
+              model,
+              reason: toErrorMessage(error)
+            })
+          )
+          break
+        }
+        if (!shouldRetry(error) || attempt === maxAttempts) {
+          break
+        }
+        await sleep(backoffMs(resolved.retryDelayMs, attempt))
+      }
+    }
+
+    modelErrors.push(`${model}: ${toErrorMessage(lastError)}`)
   }
 
   throw new Error(
-    `runPrompt failed after ${maxAttempts} attempts: ${toErrorMessage(lastError)}`
+    `runPrompt failed after ${maxAttempts} attempts across models (${modelCandidates.join(
+      ', '
+    )}): ${modelErrors.join(' | ')}`
   )
 }
 
@@ -242,6 +263,17 @@ const shouldRetry = (error: unknown): boolean => {
   )
 }
 
+const isModelUnavailableError = (error: unknown): boolean => {
+  const message = toErrorMessage(error).toLowerCase()
+  return (
+    message.includes('404') ||
+    message.includes('was not found') ||
+    message.includes('does not have access') ||
+    message.includes('permission denied') ||
+    message.includes('invalid model version')
+  )
+}
+
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message
   return String(error)
@@ -249,6 +281,26 @@ const toErrorMessage = (error: unknown): string => {
 
 const sleep = async (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms))
+
+const resolveModelCandidates = (primary: string): string[] => {
+  const candidates = [primary, ...DEFAULT_FALLBACK_MODELS]
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const candidate of candidates) {
+    const model = candidate.trim()
+    if (!model || seen.has(model)) continue
+    seen.add(model)
+    normalized.push(model)
+  }
+  return normalized.length > 0 ? normalized : [DEFAULT_MODEL]
+}
+
+function parseCsv(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+}
 
 const backoffMs = (baseDelayMs: number, attempt: number): number => {
   const cappedAttempt = Math.min(attempt, 6)

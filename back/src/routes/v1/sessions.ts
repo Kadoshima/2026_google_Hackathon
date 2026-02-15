@@ -1,5 +1,5 @@
 import type { Hono } from 'hono'
-import { InputType } from '../../domain/enums.js'
+import { ArtifactType, InputType } from '../../domain/enums.js'
 import type { AnalysisResultJson } from '../../domain/types.js'
 import {
   getLatestAnalysisBySession,
@@ -23,7 +23,8 @@ type SessionResponse = {
     submission_id: string
     upload_id: string
     filename: string
-    file_type: 'zip' | 'pdf'
+    file_type: 'zip' | 'pdf' | 'artifact'
+    artifact_type?: 'PAPER' | 'PR' | 'DOC' | 'SHEET'
   }
   settings: {
     save_enabled: boolean
@@ -71,12 +72,18 @@ export const registerSessionRoutes = (app: Hono) => {
         ...(analysis ? { analysis_id: analysis.analysisId } : {}),
         ...(submission
           ? {
-              submission: {
-                submission_id: submission.submissionId,
-                upload_id: `upl_${submission.submissionId}`,
-                filename: extractFilenameFromGsPath(submission.gcsPathRaw),
-                file_type: submission.inputType === InputType.PDF ? 'pdf' : 'zip'
-              },
+                submission: {
+                  submission_id: submission.submissionId,
+                  upload_id: `upl_${submission.submissionId}`,
+                  filename: extractFilenameFromGsPath(submission.gcsPathRaw),
+                  file_type:
+                    (submission.artifactType ?? ArtifactType.PAPER) === ArtifactType.PAPER
+                      ? submission.inputType === InputType.PDF
+                        ? 'pdf'
+                        : 'zip'
+                      : 'artifact',
+                  artifact_type: submission.artifactType ?? ArtifactType.PAPER
+                },
               title: titleFromFilename(extractFilenameFromGsPath(submission.gcsPathRaw))
             }
           : {}),

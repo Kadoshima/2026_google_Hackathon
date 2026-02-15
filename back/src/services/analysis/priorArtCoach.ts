@@ -36,7 +36,7 @@ const proposePriorArtQueries = async (
       claimId: claim.claimId,
       query: query.trim(),
       rationale:
-        'Focuses on the technical core terms in the claim and can be used directly for prior-art retrieval.'
+        '主張の技術コア語を優先した検索式です。先行技術調査の初期クエリとして利用できます。'
     }
   })
 
@@ -60,7 +60,7 @@ const pickKeywords = (text: string, limit: number): string[] => {
     if (ordered.length >= limit) break
   }
 
-  return ordered.length > 0 ? ordered : ['research', 'method']
+  return ordered.length > 0 ? ordered : ['研究', '手法']
 }
 
 const STOP_WORDS = new Set([

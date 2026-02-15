@@ -44,27 +44,27 @@ const inspectLogic = async (
     let severity: LogicRisk['severity'] | null = null
 
     if (hasAbsoluteWord && !hasCondition) {
-      reasons.push('contains an absolute statement without explicit conditions')
+      reasons.push('断定表現がある一方で、成立条件が明示されていません')
       severity = 'HIGH'
     }
 
     if (hasVagueWord && !hasNumber) {
-      reasons.push('uses vague wording without quantitative support')
+      reasons.push('定量根拠がないまま抽象語で効果を述べています')
       severity = promoteSeverity(severity, 'MEDIUM')
     }
 
     if (impliesComparison && !hasComparator) {
-      reasons.push('implies comparison but does not specify a clear baseline')
+      reasons.push('比較を示唆していますが、比較対象（ベースライン）が不明です')
       severity = promoteSeverity(severity, 'MEDIUM')
     }
 
     if (!hasNumber && !hasCondition && !hasComparator) {
-      reasons.push('lacks quantitative, conditional, or baseline details')
+      reasons.push('数値・条件・比較対象の3要素が不足しています')
       severity = promoteSeverity(severity, 'LOW')
     }
 
     if (textLength < 45 && !hasNumber) {
-      reasons.push('claim statement is short and lacks quantitative detail')
+      reasons.push('主張文が短く、再現可能性を担保する具体性が不足しています')
       severity = promoteSeverity(severity, 'LOW')
     }
 
@@ -97,7 +97,7 @@ const promoteSeverity = (
 
 const VAGUE_PATTERNS = [
   /\b(significant|substantial|dramatic|remarkable|effective|efficient)\b/i,
-  /(大幅|十分|顕著|有効|効果的|高速化)/i
+  /(大幅|十分|顕著|有効|効果的|高速化|改善した|優れている|高い性能)/i
 ]
 
 const ABSOLUTE_PATTERNS = [

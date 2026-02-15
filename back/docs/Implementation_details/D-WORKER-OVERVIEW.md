@@ -1,7 +1,7 @@
-# D. Worker Overview（BE-040〜BE-046）
+# D. Worker Overview（BE-040〜BE-046 + BE-080以降）
 
 ## このドキュメントの目的
-Worker（抽出〜preflight）周りの「どこがエントリーポイントで、どこから呼ばれる前提か」と「依存関係」を1枚にまとめる。
+Worker（抽出〜統合）周りの「どこがエントリーポイントで、どこから呼ばれる前提か」と「依存関係」を1枚にまとめる。
 
 ## エントリーポイント（コード）
 - プロセス起動: `src/index.ts`
@@ -36,27 +36,34 @@ Worker（抽出〜preflight）周りの「どこがエントリーポイント�
   - 実行中ロックの場合もスキップ（stale なら奪取）
 3. Orchestrator 実行（BE-040 内から呼ぶ想定）
   - 入力 `Analysis` / `Submission` を Firestore から取得
-  - `Submission.inputType` に応じて extractor を分岐
-    - LaTeX ZIP: safe unzip（BE-042）→ latex extract（BE-043）
-    - PDF: pdf extract（BE-044）
+  - `Submission.artifactType` に応じて Adapter を分岐
+    - PAPER: safe unzip（BE-042）→ latex extract（BE-043） or PDF extract（BE-044）
+    - PR: PR adapter（diff/テスト信号）
+    - DOC/SHEET: text adapter（構造化・信号付与）
   - `ExtractJson` を GCS に保存（BE-045）
     - `AnalysisPointers.gcsExtractJson` を更新
+  - Claim Miner（LLM + fallback）
+  - Claim Critic -> Refiner 反復
   - Preflight（BE-046）
-  - 最低限結果を `analysis/.../result.json` に保存（将来 `AnalysisPointers.gcsAnalysisJson` 更新）
+  - Evidence / Logic / Prior-Art / Scoring
+  - 結果を `analysis/.../result.json` に保存し `gcsAnalysisJson` 更新
+  - Agent trace を段階保存（`summary.agents` のリアルタイム表示用）
 4. ロック解放（BE-041）
 
 ## 依存関係（コンポーネント）
-- `FirestoreRepo`（状態/ロック/ポインタ更新）
+- `FirestoreRepo`（状態/ロック/ポインタ更新/agentTrace保存）
   - `Analysis.status/progress/step/error`（`src/domain/types.ts`）
-  - `AnalysisPointers.gcsExtractJson`（同上）
+  - `AnalysisPointers.gcsExtractJson` / `gcsAnalysisJson`（同上）
 - `StorageService`（GCS）
   - raw 入力の取得（`Submission.gcsPathRaw`）
   - extract JSON / result JSON の保存
 - `TasksService`（Cloud Tasks）
   - `/internal/tasks/analysis` に `{analysis_id}` を投げる（BE-032）
 - `Extractor`
-  - latex: BE-042 + BE-043
-  - pdf: BE-044
+  - paper: BE-042 + BE-043 + BE-044
+  - pr/doc/sheet: BE-080 adapter群
+- `Claim Loop`
+  - Critic/Refiner反復（BE-082）
 - `Preflight`
   - ExtractJson を入力に findings を生成（BE-046）
 
@@ -64,5 +71,5 @@ Worker（抽出〜preflight）周りの「どこがエントリーポイント�
 - API body: `analysis_id`（snake_case）
 - domain: `Analysis.analysisId`（camelCase）
 - pointers: `AnalysisPointers.gcsExtractJson` / `gcsAnalysisJson` / `gcsReportHtml`
+- agent trace: `Analysis.agentTrace[]` -> APIでは `summary.agents`
 - refs: `ConversationRefs`（`paragraphIds`, `claimIds`, `figureIds`, `citationKeys`）
-

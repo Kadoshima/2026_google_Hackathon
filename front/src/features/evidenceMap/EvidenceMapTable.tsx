@@ -28,7 +28,7 @@ export function EvidenceMapTable({ claims, onSelectClaim, selectedClaimId }: Evi
   return (
     <Card>
       <CardHeader
-        title="Claim–Evidence Map"
+        title="主張–根拠マップ"
         subtitle="主張とその根拠の対応関係"
       />
       

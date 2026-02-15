@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { registerAnalyzeRoutes } from './analyze.js'
 import { registerAnalysisRoutes } from './analysis.js'
+import { registerArtifactRoutes } from './artifacts.js'
+import { registerCapabilitiesRoutes } from './capabilities.js'
 import { registerHealthRoutes } from './health.js'
 import { registerOralRoutes } from './oral.js'
 import { registerPatchRoutes } from './patch.js'
@@ -13,6 +15,7 @@ export const registerV1Routes = (app: Hono) => {
   const v1 = new Hono()
 
   registerUploadRoutes(v1)
+  registerArtifactRoutes(v1)
   registerAnalyzeRoutes(v1)
   registerAnalysisRoutes(v1)
   registerOralRoutes(v1)
@@ -20,6 +23,7 @@ export const registerV1Routes = (app: Hono) => {
   registerReportRoutes(v1)
   registerSessionRoutes(v1)
   registerSettingsRoutes(v1)
+  registerCapabilitiesRoutes(v1)
   registerHealthRoutes(v1)
 
   app.route('/v1', v1)

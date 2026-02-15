@@ -27,6 +27,18 @@ export type AnalysisMetrics = {
     weakEvidenceClaimsCount?: number;
     specificityLackCount?: number;
 };
+export type AgentRole = 'PLANNER' | 'EXTRACTOR' | 'CLAIM_MINER' | 'PREFLIGHT_GUARDIAN' | 'EVIDENCE_AUDITOR' | 'LOGIC_SENTINEL' | 'PRIOR_ART_COACH' | 'SYNTHESIZER';
+export type AgentStatus = 'DONE' | 'WARN' | 'SKIPPED';
+export type AgentTraceEntry = {
+    agentId: string;
+    role: AgentRole;
+    status: AgentStatus;
+    startedAt: string;
+    endedAt: string;
+    durationMs: number;
+    summary: string;
+    highlights?: string[];
+};
 export type Analysis = {
     analysisId: string;
     sessionId: string;
@@ -37,6 +49,7 @@ export type Analysis = {
     error?: AnalysisError;
     pointers?: AnalysisPointers;
     metrics?: AnalysisMetrics;
+    agentTrace?: AgentTraceEntry[];
     updatedAt?: Date | string;
 };
 export type ConversationRefs = {
@@ -147,6 +160,7 @@ export type AnalysisResultJson = {
     preflight: PreflightResult;
     generatedAt: string;
     extractPath?: string;
+    agentTrace?: AgentTraceEntry[];
     warnings?: string[];
 };
 //# sourceMappingURL=types.d.ts.map

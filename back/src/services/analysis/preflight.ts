@@ -52,7 +52,7 @@ export const runPreflight = (extract: ExtractJson): PreflightResult => {
       findings.push({
         kind: 'MISSING_FIGURE_REFERENCE',
         severity: 'error',
-        message: `Figure ${figure.label} is never referenced in body text.`,
+        message: `図 ${figure.label} が本文中で一度も参照されていません。`,
         refs: {
           figureIds: [figure.id]
         }
@@ -90,7 +90,7 @@ export const runPreflight = (extract: ExtractJson): PreflightResult => {
     findings.push({
       kind: 'UNKNOWN_FIGURE_REFERENCE',
       severity: 'error',
-      message: `Referenced figure label ${label} does not exist.`,
+      message: `本文で参照されている図ラベル ${label} が定義されていません。`,
       refs: {
         paragraphIds: [...paragraphIds]
       }
@@ -101,7 +101,7 @@ export const runPreflight = (extract: ExtractJson): PreflightResult => {
     findings.push({
       kind: 'UNKNOWN_FIGURE_REFERENCE',
       severity: 'warning',
-      message: `Referenced figure number ${refNum} does not exist.`,
+      message: `本文で参照されている図番号 ${refNum} が存在しません。`,
       refs: {
         paragraphIds: [...paragraphIds]
       }
@@ -128,7 +128,7 @@ export const runPreflight = (extract: ExtractJson): PreflightResult => {
     findings.push({
       kind: 'MISSING_BIB_ENTRY',
       severity: 'error',
-      message: `Citation key ${key} is used in text but missing in bibliography.`,
+      message: `本文で使用している引用キー ${key} が参考文献一覧にありません。`,
       refs: {
         paragraphIds: [...paragraphIds],
         citationKeys: [key]
@@ -143,7 +143,7 @@ export const runPreflight = (extract: ExtractJson): PreflightResult => {
     findings.push({
       kind: 'UNCITED_BIB_ENTRY',
       severity: 'warning',
-      message: `Bibliography key ${bibEntry.key} is never cited in text.`,
+      message: `参考文献キー ${bibEntry.key} が本文中で一度も引用されていません。`,
       refs: {
         citationKeys: [bibEntry.key]
       }

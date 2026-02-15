@@ -15,7 +15,7 @@ export const nextQuestion = async (
   const focusClaimId = context?.focus_claim_id
   const fallbackQuestion = focusClaimId
     ? `Claim ${focusClaimId} を支える実験条件と比較対象を、1文で具体化してください。`
-    : 'Please summarize the core novelty of your claim in one sentence.'
+    : 'この研究の新規性を、比較対象を含めて1文で説明してください。'
   const focusClaimText = llmInput?.focusClaimText ?? fallbackQuestion
   const extractedText =
     llmInput?.extractedText ??

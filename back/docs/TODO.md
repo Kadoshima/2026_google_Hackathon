@@ -1,5 +1,12 @@
 # TODO（実装順・パスは .md 統一）
 
+## 方針（2026-02更新）
+
+- 上位コンセプトを「論文投稿前ツール」から **Accountability Layer（説明責任レイヤー）** へ拡張
+- 実装の中核は `Decompose -> Challenge -> Verify` を維持
+- 対象ドメインは **Core Engine + Domain Adapter** で拡張（PAPER / PR / DOC / SHEET）
+- 進捗可視化は「詳細ログ羅列」ではなく、**Agentシーケンス中心**で見せる
+
 ## A. プロジェクト基盤（まず動く骨格）
 
 * [x] **BE-001：モノレポ/ディレクトリ構成の作成（frontend/backend分離）**
@@ -34,7 +41,7 @@
   `./Implementation_details/INF-002.md`
   担当者:  萩原、小川
 
-* [] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
+* [ ] **INF-003：Firestore 初期セットアップ（コレクション方針・インデックス）**
   `./Implementation_details/INF-003.md`
   担当者: 萩原
 
@@ -210,7 +217,7 @@
   `./Implementation_details/BE-052.md`
   担当者: 萩原
 
-* [x] **BE-053：Analysis Orchestrator 雛形（extract→analysis→finalize）**
+* [x] **BE-053：Analysis Orchestrator 雛形（Decompose→Challenge→Verify）**
   `./Implementation_details/BE-053.md`
   担当者: 萩原
 
@@ -353,3 +360,43 @@
 * [ ] **QA-002：E2Eスモーク（upload→analyze→READY→oral→patch→report）**
   `./Implementation_details/QA-002.md`
   担当者: 
+
+---
+
+## J. Accountability Layer 拡張（artifact前提の再設計）
+
+* [x] **ARCH-001：上位コンセプト更新（Accountability Layer / Decompose-Challenge-Verify）**
+  `./Implementation_details/ARCH-001.md`
+  担当者: 萩原
+
+* [x] **ARCH-002：README群の統合更新（root/back/front を artifact拡張前提へ統一）**
+  `./Implementation_details/ARCH-002.md`
+  担当者: 萩原
+
+* [x] **BE-080：Artifact入力基盤（/v1/artifacts, /v1/capabilities, Adapter土台）**
+  `./Implementation_details/BE-080.md`
+  担当者: 萩原
+
+* [x] **BE-081：Agent Trace保存と進捗API拡張（summary.agents リアルタイム返却）**
+  `./Implementation_details/BE-081.md`
+  担当者: 萩原
+
+* [x] **BE-082：Claim Miner Critic->Refiner 反復ループ導入**
+  `./Implementation_details/BE-082.md`
+  担当者: 萩原
+
+* [x] **FE-050：Session画面にAgentシーケンスバー導入（詳細ログ非表示）**
+  `./Implementation_details/FE-050.md`
+  担当者: 萩原
+
+* [x] **FE-051：Summaryの日本語要約最適化（Top3中心・縦積み圧縮）**
+  `./Implementation_details/FE-051.md`
+  担当者: 萩原
+
+* [ ] **BE-083：Understanding Score（MVP版）定義と算出ロジック**
+  `./Implementation_details/BE-083.md`
+  担当者: 萩原
+
+* [ ] **FE-052：Understanding Score表示（推移・内訳・改善差分）**
+  `./Implementation_details/FE-052.md`
+  担当者: 萩原

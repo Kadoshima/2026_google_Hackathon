@@ -1,11 +1,12 @@
 import { FieldValue, Firestore } from '@google-cloud/firestore'
-import { AnalysisStatus } from '../domain/enums.js'
+import { AnalysisStatus, ArtifactType } from '../domain/enums.js'
 import type { InputType, AnalysisStep } from '../domain/enums.js'
 import type {
   Analysis,
   AnalysisError,
   AnalysisMetrics,
   AnalysisPointers,
+  AgentTraceEntry,
   ConversationTurn,
   ConversationRefs,
   RetentionPolicy,
@@ -86,7 +87,12 @@ type CreateSubmissionRecordInput = Omit<Submission, 'createdAt' | 'status'> &
   Partial<Pick<Submission, 'createdAt' | 'status'>>
 
 type CreateAnalysisRecordInput = Pick<Analysis, 'analysisId' | 'sessionId' | 'submissionId'> &
-  Partial<Pick<Analysis, 'status' | 'progress' | 'step' | 'error' | 'pointers' | 'metrics' | 'updatedAt'>>
+  Partial<
+    Pick<
+      Analysis,
+      'status' | 'progress' | 'step' | 'error' | 'pointers' | 'metrics' | 'agentTrace' | 'updatedAt'
+    >
+  >
 
 export class FirestoreRepo {
   private readonly client: Firestore
@@ -117,6 +123,7 @@ export class FirestoreRepo {
     const submission: Submission = {
       submissionId: input.submissionId,
       sessionId: input.sessionId,
+      artifactType: input.artifactType ?? ArtifactType.PAPER,
       inputType: input.inputType,
       gcsPathRaw: input.gcsPathRaw,
       createdAt: toStoredDate(input.createdAt),
@@ -148,6 +155,9 @@ export class FirestoreRepo {
     }
     if (input.metrics) {
       analysis.metrics = input.metrics
+    }
+    if (input.agentTrace) {
+      analysis.agentTrace = input.agentTrace
     }
 
     await this.client.collection('analyses').doc(analysis.analysisId).set(analysis)
@@ -283,6 +293,22 @@ export class FirestoreRepo {
     )
   }
 
+  async setAgentTrace(analysisId: string, trace: AgentTraceEntry[]): Promise<void> {
+    const analysisRef = this.client.collection('analyses').doc(analysisId)
+    const snapshot = await analysisRef.get()
+    if (!snapshot.exists) {
+      throw new AppError(ErrorCodes.ANALYSIS_NOT_FOUND, 'analysis not found', 404, { analysisId })
+    }
+
+    await analysisRef.set(
+      {
+        agentTrace: trace,
+        updatedAt: nowIso()
+      },
+      { merge: true }
+    )
+  }
+
   async saveConversationTurn(analysisId: string, turn: ConversationTurn): Promise<void> {
     const analysisSnap = await this.client.collection('analyses').doc(analysisId).get()
     if (!analysisSnap.exists) {
@@ -401,6 +427,7 @@ export type CreateSessionInput = {
 export type CreateSubmissionInput = {
   submissionId: string
   sessionId: string
+  artifactType?: ArtifactType
   inputType: InputType
   gcsPathRaw: string
 }

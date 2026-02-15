@@ -261,7 +261,8 @@ export interface SubmissionInfo {
   submission_id: string;
   upload_id: string;
   filename: string;
-  file_type: 'zip' | 'pdf';
+  file_type: 'zip' | 'pdf' | 'artifact';
+  artifact_type?: 'PAPER' | 'PR' | 'DOC' | 'SHEET';
 }
 
 export interface SessionSettings {

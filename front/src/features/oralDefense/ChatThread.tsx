@@ -48,7 +48,7 @@ export function ChatThread({
   return (
     <Card className="flex flex-col h-[600px]">
       <CardHeader
-        title="Oral Defense"
+        title="口頭試問"
         subtitle="査読官からの質問に答え、論理の穴を発見しましょう"
         icon={<Bot className="w-5 h-5 text-indigo-600" />}
       />

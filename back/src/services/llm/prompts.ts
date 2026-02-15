@@ -21,21 +21,22 @@ type OralPromptInput = {
 }
 
 const COMMON_RULES = [
-  'Return JSON only. Do not output markdown.',
-  'All references are mandatory for every claim.',
-  'Use existing IDs from the input text. Do not invent IDs.',
-  'If evidence is missing, set confidence to low and explain why.'
+  '出力はJSONのみ。Markdownは出力しない。',
+  'IDは入力に存在するものだけを使う。新規IDを作らない。',
+  '不確実な場合でも推測を作らず、根拠不足として扱う。',
+  '説明文は日本語で簡潔に記述する。'
 ] as const
 
 const buildClaimPrompt = (input: ClaimPromptInput): string => {
   const maxClaims = input.maxClaims ?? 12
   return [
-    'Task: extract core claims from the document.',
+    'タスク: 文書から主要な主張(claim)を抽出する。',
     ...COMMON_RULES,
-    'Output schema:',
+    '出力スキーマ:',
     '{ "claims": [{ "claimId": "...", "text": "...", "paragraphIds": ["..."], "confidence": "low|medium|high" }] }',
-    `Max claims: ${maxClaims}`,
-    'Document:',
+    `最大件数: ${maxClaims}`,
+    '注意: claim.text は元文の意味を維持し、冗長にしない。',
+    '入力文書:',
     input.extractedText
   ].join('\n')
 }
@@ -46,26 +47,27 @@ const buildEvidencePrompt = (input: EvidencePromptInput): string => {
     .join('\n')
 
   return [
-    'Task: map each claim to supporting evidence.',
+    'タスク: 各claimに対応する根拠段落・図・引用を対応づける。',
     ...COMMON_RULES,
-    'Output schema:',
+    '出力スキーマ:',
     '{ "evidence": [{ "claimId": "...", "paragraphIds": ["..."], "figureIds": ["..."], "citationKeys": ["..."], "reason": "..." }] }',
     'Claims:',
     claimsSection || '- (no claims)',
-    'Document:',
+    '入力文書:',
     input.extractedText
   ].join('\n')
 }
 
 const buildOralPrompt = (input: OralPromptInput): string => {
   return [
-    'Task: generate one oral-defense question and one model answer.',
+    'タスク: 口頭試問で使う質問を1つ生成し、期待回答の要点を作る。',
     ...COMMON_RULES,
-    'Output schema:',
+    '出力スキーマ:',
     '{ "question": "...", "expectedAnswer": "...", "claimId": "...", "paragraphIds": ["..."] }',
-    `Focus claim ID: ${input.focusClaimId}`,
-    `Focus claim: ${input.focusClaimText}`,
-    'Document:',
+    'question と expectedAnswer は日本語で書く。',
+    `対象claim ID: ${input.focusClaimId}`,
+    `対象claim: ${input.focusClaimText}`,
+    '入力文書:',
     input.extractedText
   ].join('\n')
 }
