@@ -223,6 +223,37 @@ export const putText = async (input: PutTextInput): Promise<string> => {
   return `gs://${bucket}/${input.objectPath}`
 }
 
+/**
+ * Delete a single GCS object by `gs://` URI. Missing objects are treated
+ * as a no-op (idempotent).
+ */
+export const deleteObject = async (gsPath: string): Promise<void> => {
+  const { bucket, objectPath } = parseGsPath(gsPath)
+  try {
+    await storage.bucket(bucket).file(objectPath).delete({ ignoreNotFound: true })
+  } catch (error) {
+    const err = error as { code?: number }
+    if (err?.code === 404) return
+    throw error
+  }
+}
+
+/**
+ * Delete every object under a GCS prefix. Used to wipe a session's
+ * folder (`raw/<sessionId>/...`) in one call.
+ */
+export const deletePrefix = async (prefix: string): Promise<number> => {
+  const bucket = requireBucketName()
+  const safePrefix = assertSafeObjectPath(prefix)
+  const [files] = await storage.bucket(bucket).getFiles({ prefix: safePrefix })
+  let deleted = 0
+  for (const file of files) {
+    await file.delete({ ignoreNotFound: true })
+    deleted += 1
+  }
+  return deleted
+}
+
 export const getSignedUrl = async (gsPath: string): Promise<string> => {
   const { bucket, objectPath } = parseGsPath(gsPath)
   const ttlSeconds = Number(process.env.SIGNED_URL_TTL_SECONDS ?? 900)

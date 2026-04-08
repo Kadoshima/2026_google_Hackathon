@@ -10,6 +10,7 @@ import {
   securityHeadersMiddleware
 } from './utils/middleware.js'
 import { logger } from './utils/logger.js'
+import { isAppError, toErrorResponse } from './utils/errors.js'
 
 export const createApp = () => {
   const app = new Hono()
@@ -58,9 +59,10 @@ export const createApp = () => {
         'Authorization',
         'X-Client-Token-Hash',
         'X-Client-Token',
-        'X-Request-Id'
+        'X-Request-Id',
+        'Idempotency-Key'
       ],
-      exposeHeaders: ['X-Request-Id'],
+      exposeHeaders: ['X-Request-Id', 'Idempotent-Replayed'],
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       maxAge: 600
     })
@@ -70,19 +72,28 @@ export const createApp = () => {
   registerInternalRoutes(app)
 
   // Centralized fallback for any error that escapes per-route handling.
+  // Must honour AppError's own status so that middleware-thrown 4xx
+  // (body limit, idempotency key, rate limit) don't get flattened to 500.
   app.onError((err, c) => {
     const reqLogger = c.get('logger') ?? logger
-    reqLogger.error('unhandled_error', { error: err })
-    return c.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'internal error',
-          details: { requestId: c.get('requestId') }
-        }
-      },
-      500
-    )
+    const requestId = c.get('requestId')
+    const { status, payload } = toErrorResponse(err)
+
+    if (payload.error.code && requestId) {
+      payload.error.details = { ...(payload.error.details ?? {}), requestId }
+    }
+
+    if (isAppError(err) && status < 500) {
+      reqLogger.warn('request_failed', {
+        code: payload.error.code,
+        status,
+        message: payload.error.message
+      })
+    } else {
+      reqLogger.error('unhandled_error', { error: err, code: payload.error.code })
+    }
+
+    return c.json(payload, status)
   })
 
   app.notFound((c) => {

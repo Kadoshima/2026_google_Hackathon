@@ -91,3 +91,40 @@ test('POST /v1/analyze with invalid JSON body returns 400', async () => {
   const body = (await res.json()) as { error: { code: string } }
   assert.equal(body.error.code, 'INVALID_INPUT')
 })
+
+test('Body limit rejects oversized JSON via Content-Length', async () => {
+  // Claim a 10 MB body; the server should short-circuit before parsing.
+  const res = await fetchApp('/v1/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': String(10 * 1024 * 1024)
+    },
+    body: '{}'
+  })
+  assert.equal(res.status, 413)
+  const body = (await res.json()) as { error: { code: string } }
+  assert.equal(body.error.code, 'PAYLOAD_TOO_LARGE')
+})
+
+test('Invalid Idempotency-Key is rejected with 400', async () => {
+  const res = await fetchApp('/v1/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': 'has spaces!!'
+    },
+    body: JSON.stringify({ session_id: 's', submission_id: 'x' })
+  })
+  assert.equal(res.status, 400)
+  const body = (await res.json()) as { error: { code: string; message: string } }
+  assert.equal(body.error.code, 'INVALID_INPUT')
+  assert.ok(body.error.message.toLowerCase().includes('idempotency-key'))
+})
+
+test('GET /v1/capabilities returns artifact adapters', async () => {
+  const res = await fetchApp('/v1/capabilities')
+  assert.equal(res.status, 200)
+  const body = (await res.json()) as { artifact_adapters: unknown[] }
+  assert.ok(Array.isArray(body.artifact_adapters))
+})

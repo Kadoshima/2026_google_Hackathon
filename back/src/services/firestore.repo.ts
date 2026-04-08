@@ -537,3 +537,130 @@ export const saveConversationTurn = async (
   await defaultRepo.saveConversationTurn(input.analysisId, turn)
   return turn
 }
+
+// ---------------------------------------------------------------------------
+// Deletion / retention helpers
+//
+// Used by:
+//   - DELETE /v1/sessions/:sessionId (right to erasure)
+//   - scripts/cleanup-expired.ts (scheduled TTL sweep)
+// ---------------------------------------------------------------------------
+
+export type DeletedGcsRef = { gsPath: string }
+
+export type DeletedSessionSummary = {
+  sessionId: string
+  deletedAt: string
+  submissionCount: number
+  analysisCount: number
+  conversationTurnCount: number
+  gcsObjects: DeletedGcsRef[]
+}
+
+/**
+ * Delete a session and every document transitively owned by it.
+ * Returns a summary of what was removed so callers can delete the
+ * matching GCS objects.
+ *
+ * This is idempotent: calling it on a non-existent session returns
+ * a summary with zero counts.
+ */
+export const deleteSessionCascade = async (
+  sessionId: string
+): Promise<DeletedSessionSummary> => {
+  const gcsObjects: DeletedGcsRef[] = []
+  let submissionCount = 0
+  let analysisCount = 0
+  let conversationTurnCount = 0
+
+  const submissionsSnap = await firestore
+    .collection('submissions')
+    .where('sessionId', '==', sessionId)
+    .get()
+
+  for (const doc of submissionsSnap.docs) {
+    const data = doc.data() as Submission
+    if (data.gcsPathRaw) {
+      gcsObjects.push({ gsPath: data.gcsPathRaw })
+    }
+    submissionCount += 1
+  }
+
+  const analysesSnap = await firestore
+    .collection('analyses')
+    .where('sessionId', '==', sessionId)
+    .get()
+
+  for (const doc of analysesSnap.docs) {
+    const data = doc.data() as { pointers?: AnalysisPointers }
+    const pointers = data.pointers
+    if (pointers?.gcsExtractJson) gcsObjects.push({ gsPath: pointers.gcsExtractJson })
+    if (pointers?.gcsAnalysisJson) gcsObjects.push({ gsPath: pointers.gcsAnalysisJson })
+    if (pointers?.gcsReportHtml) gcsObjects.push({ gsPath: pointers.gcsReportHtml })
+    analysisCount += 1
+
+    const turns = await firestore
+      .collection('analyses')
+      .doc(doc.id)
+      .collection('conversation_turns')
+      .get()
+    conversationTurnCount += turns.size
+    for (const turn of turns.docs) {
+      await turn.ref.delete()
+    }
+  }
+
+  const batch = firestore.batch()
+  submissionsSnap.docs.forEach((doc) => batch.delete(doc.ref))
+  analysesSnap.docs.forEach((doc) => batch.delete(doc.ref))
+  batch.delete(firestore.collection('sessions').doc(sessionId))
+  await batch.commit()
+
+  return {
+    sessionId,
+    deletedAt: nowIso(),
+    submissionCount,
+    analysisCount,
+    conversationTurnCount,
+    gcsObjects
+  }
+}
+
+/**
+ * Return session IDs whose retentionPolicy has expired relative to now.
+ * Sessions with `mode: NO_SAVE` and no ttlHours are treated as
+ * "delete after 24h" by default.
+ */
+export const findExpiredSessions = async (
+  options: { now?: Date; defaultNoSaveTtlHours?: number; limit?: number } = {}
+): Promise<Array<{ sessionId: string; createdAt: string; policy: RetentionPolicy }>> => {
+  const now = options.now ?? new Date()
+  const defaultNoSaveHours = options.defaultNoSaveTtlHours ?? 24
+  const limit = options.limit ?? 500
+
+  const snap = await firestore.collection('sessions').limit(limit).get()
+  const expired: Array<{ sessionId: string; createdAt: string; policy: RetentionPolicy }> = []
+
+  for (const doc of snap.docs) {
+    const data = doc.data() as Session
+    const policy = data.retentionPolicy
+    if (!policy) continue
+
+    const createdAtStr = toStoredDate(data.createdAt)
+    const createdAtMs = parseIsoMillis(createdAtStr)
+    if (createdAtMs === null) continue
+
+    const ttlHours =
+      policy.ttlHours ??
+      (policy.mode === 'NO_SAVE' ? defaultNoSaveHours : null)
+
+    if (ttlHours === null) continue
+
+    const expiresAtMs = createdAtMs + ttlHours * 60 * 60 * 1000
+    if (now.getTime() >= expiresAtMs) {
+      expired.push({ sessionId: data.sessionId, createdAt: createdAtStr, policy })
+    }
+  }
+
+  return expired
+}
