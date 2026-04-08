@@ -1,0 +1,51 @@
+# Cloud Build pipeline for Reviewer Zero backend.
+#
+# Trigger this from a Cloud Build trigger watching the main branch.
+# Substitution variables:
+#   _REGION       (e.g. asia-northeast1)
+#   _REPO         (Artifact Registry repo, e.g. reviewer-zero)
+#   _SERVICE      (Cloud Run service, e.g. reviewer-zero-back)
+substitutions:
+  _REGION: asia-northeast1
+  _REPO: reviewer-zero
+  _SERVICE: reviewer-zero-back
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  - id: build-back
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - back/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - .
+
+  - id: push-back
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}
+
+  - id: deploy-back
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --quiet
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest

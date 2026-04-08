@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: back/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript build
+        run: npm run build
+
+      - name: Smoke tests
+        env:
+          GCP_PROJECT_ID: test-project
+          BUCKET_NAME: test-bucket
+          NODE_ENV: test
+        run: npm test
+
+  frontend:
+    name: Frontend (build + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --force
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+
+  shared:
+    name: Shared types (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript build
+        run: npm run build --if-present

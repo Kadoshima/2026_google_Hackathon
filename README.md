@@ -108,3 +108,25 @@ npm run dev
 - `front/README.md`
 - `back/docs/TODO.md`
 - `back/docs/Implementation_details/`
+
+### 運用ドキュメント
+
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Cloud Run + Firestore + Vertex AI へのデプロイ手順
+- [`docs/SECURITY.md`](docs/SECURITY.md) — セキュリティ設計、脅威モデル、報告窓口
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — SLO、Runbook、容量計画
+- [`infra/cloudrun/back-service.yaml`](infra/cloudrun/back-service.yaml) — Cloud Run サービス定義
+- [`infra/cloudbuild.yaml`](infra/cloudbuild.yaml) — Cloud Build パイプライン
+- `.github/workflows/ci.yml` / `deploy-backend.yml` — CI/CD
+
+### 法務ページ（フロントエンド）
+
+- `/legal/privacy` — プライバシーポリシー
+- `/legal/terms` — 利用規約
+
+### テスト
+
+```bash
+cd back
+npm test          # 構築 + スモークテスト (9件)
+```
+

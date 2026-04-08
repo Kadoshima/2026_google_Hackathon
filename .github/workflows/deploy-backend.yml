@@ -1,0 +1,83 @@
+name: Deploy backend (Cloud Run)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'back/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-backend.yml'
+      - 'infra/cloudrun/**'
+  workflow_dispatch:
+
+# This workflow assumes the following GitHub repository secrets / variables:
+#   secrets.GCP_WORKLOAD_IDENTITY_PROVIDER  - WIF provider resource name
+#   secrets.GCP_DEPLOY_SERVICE_ACCOUNT      - service account email used for deploy
+#   vars.GCP_PROJECT_ID                     - target GCP project
+#   vars.GCP_REGION                         - e.g. asia-northeast1
+#   vars.CLOUD_RUN_SERVICE                  - Cloud Run service name (e.g. reviewer-zero-back)
+#   vars.ARTIFACT_REPO                      - Artifact Registry repo (e.g. reviewer-zero)
+#
+# Until those are configured, this workflow runs in "dry-run" mode and only
+# validates the build / image inputs.
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if secrets are not configured
+        id: gate
+        run: |
+          if [ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] || [ -z "${{ vars.GCP_PROJECT_ID }}" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment secrets not configured; running in dry-run mode."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate to Google Cloud
+        if: steps.gate.outputs.deploy == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        if: steps.gate.outputs.deploy == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.gate.outputs.deploy == 'true'
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPO }}/${{ vars.CLOUD_RUN_SERVICE }}:${{ github.sha }}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build -f back/Dockerfile -t "$IMAGE" .
+
+      - name: Push image
+        if: steps.gate.outputs.deploy == 'true'
+        run: docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ vars.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 2 --memory 1Gi \
+            --concurrency 80 \
+            --min-instances 0 --max-instances 10 \
+            --timeout 600 \
+            --set-env-vars NODE_ENV=production,SERVICE_NAME=${{ vars.CLOUD_RUN_SERVICE }} \
+            --quiet
