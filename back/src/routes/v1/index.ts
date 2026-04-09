@@ -10,6 +10,7 @@ import { registerReportRoutes } from './report.js'
 import { registerSessionRoutes } from './sessions.js'
 import { registerSettingsRoutes } from './settings.js'
 import { registerUploadRoutes } from './upload.js'
+import { registerDemoRoutes } from './demo.js'
 import { loadConfig } from '../../utils/config.js'
 import { createRateLimitMiddleware } from '../../utils/rateLimit.js'
 import { createIdempotencyMiddleware } from '../../utils/idempotency.js'
@@ -52,6 +53,7 @@ export const registerV1Routes = (app: Hono) => {
   registerSettingsRoutes(v1)
   registerCapabilitiesRoutes(v1)
   registerHealthRoutes(v1)
+  registerDemoRoutes(v1)
 
   app.route('/v1', v1)
 }

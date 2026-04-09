@@ -18,6 +18,8 @@ ENV NODE_ENV=production
 COPY --from=build /workspace/back/package.json /workspace/back/package-lock.json ./
 COPY --from=build /workspace/back/node_modules ./node_modules
 COPY --from=build /workspace/back/dist ./dist
+# Demo fixtures are loaded at runtime by /v1/demo routes.
+COPY --from=build /workspace/back/docs/demo ./docs/demo
 
 EXPOSE 8080
 CMD ["node", "dist/index.js"]

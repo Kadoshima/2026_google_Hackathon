@@ -128,3 +128,22 @@ test('GET /v1/capabilities returns artifact adapters', async () => {
   const body = (await res.json()) as { artifact_adapters: unknown[] }
   assert.ok(Array.isArray(body.artifact_adapters))
 })
+
+test('GET /v1/demo/info returns sample metadata', async () => {
+  const res = await fetchApp('/v1/demo/info')
+  assert.equal(res.status, 200)
+  const body = (await res.json()) as { sample_id: string; flaws: unknown[] }
+  assert.ok(typeof body.sample_id === 'string')
+  assert.ok(Array.isArray(body.flaws))
+})
+
+test('GET /v1/demo/sample/analysis returns precomputed analysis', async () => {
+  const res = await fetchApp('/v1/demo/sample/analysis')
+  assert.equal(res.status, 200)
+  const body = (await res.json()) as {
+    status: string
+    summary?: { top3_risks?: unknown[] }
+  }
+  assert.equal(body.status, 'READY')
+  assert.ok(Array.isArray(body.summary?.top3_risks))
+})

@@ -4,6 +4,11 @@ import { createApp } from './server.js'
 import { loadConfig } from './utils/config.js'
 import { logger } from './utils/logger.js'
 import { markShuttingDown } from './routes/v1/health.js'
+import { shutdownTracing, startTracing } from './utils/tracing.js'
+
+// Start OpenTelemetry before importing/creating the server so that
+// auto-instrumentations can patch http/fetch before they are used.
+await startTracing()
 
 const config = loadConfig()
 
@@ -46,11 +51,12 @@ const shutdown = (signal: string) => {
   }, config.shutdown.drainTimeoutMs)
   forceExit.unref()
 
-  server.close((err) => {
+  server.close(async (err) => {
     if (err) {
       logger.error('shutdown_close_error', { error: err })
       process.exit(1)
     }
+    await shutdownTracing()
     logger.info('shutdown_complete')
     process.exit(0)
   })

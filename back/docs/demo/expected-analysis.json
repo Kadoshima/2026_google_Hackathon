@@ -1,0 +1,202 @@
+{
+  "$comment": "Precomputed analysis for bad-paper-sample.md. Used by /v1/demo/sample for deterministic demos.",
+  "analysis_id": "ana_demo_0001",
+  "session_id": "sess_demo_0001",
+  "status": "READY",
+  "progress": 1.0,
+  "step": "done",
+  "message": "demo analysis",
+  "summary": {
+    "top3_risks": [
+      {
+        "title": "統計検証の欠如: 精度向上の有意性が示されていない",
+        "refs": {
+          "claim_ids": ["c_acc_improvement"],
+          "paragraph_ids": ["p_experiments_1"]
+        }
+      },
+      {
+        "title": "「10倍高速」主張の根拠不在: 計測条件・ハードウェア・データ規模が未記載",
+        "refs": {
+          "claim_ids": ["c_10x_speedup"],
+          "paragraph_ids": ["p_experiments_2"],
+          "figure_ids": ["fig_3"]
+        }
+      },
+      {
+        "title": "先行研究の引用不足: SGC / APPNP を言及しているが参照がない",
+        "refs": {
+          "claim_ids": ["c_related_work"],
+          "paragraph_ids": ["p_related_1"]
+        }
+      }
+    ],
+    "top_risks": [
+      {
+        "title": "統計検証の欠如: 精度向上の有意性が示されていない",
+        "severity": "HIGH",
+        "reason": "表1の85.2 vs 83.0という差にp値・信頼区間・分散が併記されていない。誤差範囲内の可能性を否定できない。",
+        "refs": {
+          "claim_ids": ["c_acc_improvement"],
+          "paragraph_ids": ["p_experiments_1"]
+        }
+      },
+      {
+        "title": "「10倍高速」主張の根拠不在",
+        "severity": "HIGH",
+        "reason": "Figure 3 への参照はあるが、測定環境、バッチサイズ、データ規模、比較ベースラインの実装詳細が記載されていない。",
+        "refs": {
+          "claim_ids": ["c_10x_speedup"],
+          "paragraph_ids": ["p_experiments_2"],
+          "figure_ids": ["fig_3"]
+        }
+      },
+      {
+        "title": "先行研究の引用不足",
+        "severity": "MEDIUM",
+        "reason": "SGC と APPNP をテキストで言及しているが、References セクションに対応する引用エントリがない。",
+        "refs": {
+          "claim_ids": ["c_related_work"],
+          "paragraph_ids": ["p_related_1"]
+        }
+      },
+      {
+        "title": "理論解析の所在不明",
+        "severity": "MEDIUM",
+        "reason": "Introduction で「appendix 参照」と書かれているが、本文に該当する Appendix が存在しない。",
+        "refs": {
+          "paragraph_ids": ["p_intro_2"]
+        }
+      },
+      {
+        "title": "産業データセットの情報不足",
+        "severity": "LOW",
+        "reason": "「proprietary industry dataset」のみ記載され、サイズ・特性・前処理手順が不明。再現性を損なう。",
+        "refs": {
+          "paragraph_ids": ["p_experiments_1"]
+        }
+      }
+    ],
+    "claim_evidence": [
+      {
+        "claim_id": "c_10x_speedup",
+        "claim_text": "AMR-Net is up to 10x faster than baselines",
+        "paragraph_ids": ["p_experiments_2"],
+        "severity": "HIGH",
+        "reason": "測定条件が未記載のため、主張の検証が不可能"
+      },
+      {
+        "claim_id": "c_acc_improvement",
+        "claim_text": "Our method consistently outperforms the baselines",
+        "paragraph_ids": ["p_experiments_1"],
+        "severity": "HIGH",
+        "reason": "分散・有意性検定なし"
+      },
+      {
+        "claim_id": "c_cache_locality",
+        "claim_text": "The speedup comes from better cache locality",
+        "paragraph_ids": ["p_discussion_1"],
+        "severity": "MEDIUM",
+        "reason": "キャッシュヒット率の実測値がなく、因果関係が推測のまま"
+      },
+      {
+        "claim_id": "c_first_combination",
+        "claim_text": "the first to combine mesh reordering with message passing",
+        "paragraph_ids": ["p_intro_2"],
+        "severity": "MEDIUM",
+        "reason": "新規性の主張。類似研究の調査漏れリスクあり"
+      }
+    ],
+    "logic_risks": [
+      {
+        "claim_id": "c_10x_speedup",
+        "severity": "HIGH",
+        "reason": "Table 1 は精度のみを示し、速度比較は Figure 3 に依存。Figure 3 の正本参照が不可欠。"
+      },
+      {
+        "claim_id": "c_cache_locality",
+        "severity": "MEDIUM",
+        "reason": "因果の主張に対する対照実験がない (reordering を止めた条件が測定されていない)"
+      }
+    ],
+    "preflight_summary": {
+      "error_count": 2,
+      "warning_count": 4
+    },
+    "agents": [
+      {
+        "agent_id": "planner_demo",
+        "role": "PLANNER",
+        "status": "DONE",
+        "duration_ms": 120,
+        "summary": "artifact=PAPER (demo), thresholds=8/2500"
+      },
+      {
+        "agent_id": "extractor_demo",
+        "role": "EXTRACTOR",
+        "status": "DONE",
+        "duration_ms": 480,
+        "summary": "抽出: 6 paragraphs, 1 table, 1 figure reference"
+      },
+      {
+        "agent_id": "claim_miner_demo",
+        "role": "CLAIM_MINER",
+        "status": "DONE",
+        "duration_ms": 1820,
+        "summary": "抽出: 4 claims (refiner 2 iter)",
+        "highlights": [
+          "'10x faster' が根拠不在",
+          "'consistently outperforms' が統計的裏付け不足"
+        ]
+      },
+      {
+        "agent_id": "preflight_guardian_demo",
+        "role": "PREFLIGHT_GUARDIAN",
+        "status": "WARN",
+        "duration_ms": 230,
+        "summary": "figure_3 への参照あり / appendix 参照先なし",
+        "highlights": ["missing_appendix", "unreferenced_table"]
+      },
+      {
+        "agent_id": "evidence_auditor_demo",
+        "role": "EVIDENCE_AUDITOR",
+        "status": "DONE",
+        "duration_ms": 940,
+        "summary": "HIGH: 2件, MEDIUM: 2件",
+        "highlights": ["p値なし", "計測条件の欠落"]
+      },
+      {
+        "agent_id": "logic_sentinel_demo",
+        "role": "LOGIC_SENTINEL",
+        "status": "WARN",
+        "duration_ms": 560,
+        "summary": "因果主張の対照実験なし",
+        "highlights": ["ablation missing"]
+      },
+      {
+        "agent_id": "prior_art_coach_demo",
+        "role": "PRIOR_ART_COACH",
+        "status": "DONE",
+        "duration_ms": 310,
+        "summary": "SGC / APPNP の引用追加を推奨"
+      },
+      {
+        "agent_id": "synthesizer_demo",
+        "role": "SYNTHESIZER",
+        "status": "DONE",
+        "duration_ms": 410,
+        "summary": "Top-3 risks synthesized from 5 findings"
+      }
+    ],
+    "metrics": {
+      "no_evidence_claims": 2,
+      "weak_evidence_claims": 2,
+      "specificity_lack": 7
+    }
+  },
+  "pointers": {
+    "analysis_json_signed_url": "https://demo.reviewer-zero.example.com/demo/analysis.json",
+    "report_html_signed_url": "https://demo.reviewer-zero.example.com/demo/report.html",
+    "extract_json_signed_url": "https://demo.reviewer-zero.example.com/demo/extract.json"
+  }
+}

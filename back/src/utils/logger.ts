@@ -65,6 +65,27 @@ const emit = (severity: LogLevel, message: string, context?: LogContext) => {
     version: serviceVersion
   }
 
+  // If OpenTelemetry is active and we're inside a span, attach trace and
+  // span IDs so that Cloud Logging → Cloud Trace correlation works.
+  // Imported lazily to avoid a hard dependency on the OTel package when
+  // tracing is disabled.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const otel = globalOtel()
+    if (otel) {
+      const tc = otel.currentTraceContext()
+      if (tc.traceId) {
+        entry['logging.googleapis.com/trace'] =
+          `projects/${process.env.GCP_PROJECT_ID ?? 'unknown'}/traces/${tc.traceId}`
+        entry['logging.googleapis.com/spanId'] = tc.spanId
+        entry.traceId = tc.traceId
+        entry.spanId = tc.spanId
+      }
+    }
+  } catch {
+    // Tracing optional; ignore.
+  }
+
   if (context) {
     if (context.error !== undefined) {
       entry.error = serializeError(context.error)
@@ -82,6 +103,21 @@ const emit = (severity: LogLevel, message: string, context?: LogContext) => {
   } else {
     process.stdout.write(line + '\n')
   }
+}
+
+// Lazy tracing accessor — avoids a hard import cycle with tracing.ts.
+type TracingHook = { currentTraceContext: () => { traceId?: string; spanId?: string } }
+let cachedOtel: TracingHook | null | undefined
+const globalOtel = (): TracingHook | null => {
+  if (cachedOtel !== undefined) return cachedOtel
+  try {
+    // Attached by tracing.ts at startup.
+    const hook = (globalThis as unknown as { __otelHook?: TracingHook }).__otelHook
+    cachedOtel = hook ?? null
+  } catch {
+    cachedOtel = null
+  }
+  return cachedOtel
 }
 
 export type Logger = {
