@@ -4,6 +4,94 @@ import type { ApiError } from '@/types';
 // API base URL (環境変数から取得)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
 
+const REQUEST_ID_HEADER = 'X-Request-Id';
+
+/**
+ * Generate a short, browser-safe request id. We send this with every API
+ * call so that backend logs and frontend errors can be correlated. The
+ * backend echoes the same header back if present.
+ */
+const generateRequestId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+/**
+ * A normalized error surface for the UI. Pages and hooks should catch this
+ * (or use the helpers below) instead of the raw AxiosError.
+ */
+export class ApiClientError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly requestId: string | undefined;
+  readonly details: Record<string, unknown> | undefined;
+
+  constructor(params: {
+    status: number;
+    code: string;
+    message: string;
+    requestId?: string;
+    details?: Record<string, unknown>;
+  }) {
+    super(params.message);
+    this.name = 'ApiClientError';
+    this.status = params.status;
+    this.code = params.code;
+    this.requestId = params.requestId;
+    this.details = params.details;
+  }
+}
+
+const isApiErrorBody = (value: unknown): value is ApiError => {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as { error?: { code?: unknown; message?: unknown } };
+  return Boolean(v.error && typeof v.error.code === 'string' && typeof v.error.message === 'string');
+};
+
+const toApiClientError = (error: AxiosError<ApiError>): ApiClientError => {
+  const status = error.response?.status ?? 0;
+  const requestId = (error.response?.headers?.[REQUEST_ID_HEADER.toLowerCase()] as string | undefined)
+    ?? (error.config?.headers?.[REQUEST_ID_HEADER] as string | undefined);
+
+  if (error.response && isApiErrorBody(error.response.data)) {
+    const body = error.response.data;
+    return new ApiClientError({
+      status,
+      code: body.error.code,
+      message: body.error.message,
+      requestId,
+      details: body.error.details as Record<string, unknown> | undefined,
+    });
+  }
+
+  if (error.code === 'ECONNABORTED') {
+    return new ApiClientError({
+      status: 0,
+      code: 'TIMEOUT',
+      message: 'リクエストがタイムアウトしました。もう一度お試しください。',
+      requestId,
+    });
+  }
+
+  if (!error.response) {
+    return new ApiClientError({
+      status: 0,
+      code: 'NETWORK_ERROR',
+      message: 'ネットワークに接続できません。接続状況をご確認ください。',
+      requestId,
+    });
+  }
+
+  return new ApiClientError({
+    status,
+    code: 'UNKNOWN_ERROR',
+    message: error.message || '不明なエラーが発生しました。',
+    requestId,
+  });
+};
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -17,14 +105,19 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         // client_session_tokenをlocalStorageから取得
-        const token = typeof window !== 'undefined' 
-          ? localStorage.getItem('client_session_token') 
+        const token = typeof window !== 'undefined'
+          ? localStorage.getItem('client_session_token')
           : null;
-        
+
         if (token) {
           config.headers['X-Client-Token'] = token;
         }
-        
+
+        // Always attach a request id; the backend echoes it for log correlation.
+        if (!config.headers[REQUEST_ID_HEADER]) {
+          config.headers[REQUEST_ID_HEADER] = generateRequestId();
+        }
+
         return config;
       },
       (error) => Promise.reject(error)
@@ -34,20 +127,21 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ApiError>) => {
-        // エラーハンドリング
-        if (error.response) {
-          const apiError = error.response.data;
-          console.error('API Error:', apiError);
-          
-          // 認証エラーの場合、トークンをクリア
-          if (error.response.status === 401) {
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('client_session_token');
-            }
-          }
+        const normalized = toApiClientError(error);
+
+        // 認証エラーの場合、トークンをクリア
+        if (normalized.status === 401 && typeof window !== 'undefined') {
+          localStorage.removeItem('client_session_token');
         }
-        
-        return Promise.reject(error);
+
+        // Surface a useful log line in the browser console for debugging.
+        console.error('[api]', normalized.code, normalized.message, {
+          status: normalized.status,
+          requestId: normalized.requestId,
+          details: normalized.details,
+        });
+
+        return Promise.reject(normalized);
       }
     );
   }

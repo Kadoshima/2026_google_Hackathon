@@ -1,0 +1,564 @@
+openapi: 3.1.0
+info:
+  title: Reviewer Zero API
+  version: 1.0.0
+  summary: Accountability layer for AI-generated intellectual work.
+  description: |
+    Reviewer Zero validates whether creators truly understand their
+    artifacts through a Decompose → Challenge → Verify pipeline and
+    reflects only well-justified changes to the output.
+
+    All endpoints are scoped under `/v1`. Mutating endpoints accept the
+    optional `Idempotency-Key` header for safe retries. Every response
+    includes an `X-Request-Id` header for log correlation.
+  contact:
+    name: Reviewer Zero Team
+    url: https://github.com/Kadoshima/2026_google_Hackathon
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://reviewer-zero.example.com/v1
+    description: Production
+  - url: http://localhost:8080/v1
+    description: Local development
+
+security:
+  - clientToken: []
+
+tags:
+  - name: health
+    description: Liveness, readiness, and build metadata.
+  - name: upload
+    description: Upload PDF / LaTeX ZIP artifacts.
+  - name: artifacts
+    description: Submit plain text / markdown / diff / JSON artifacts.
+  - name: analysis
+    description: Start and poll analysis jobs.
+  - name: oral
+    description: Oral defense Q&A loop.
+  - name: patch
+    description: Generate unified diffs from accepted TODOs.
+  - name: reports
+    description: Access rendered HTML reports.
+  - name: sessions
+    description: Session lifecycle management.
+  - name: settings
+    description: Per-client retention and privacy settings.
+  - name: capabilities
+    description: Discovery of supported artifact types and checks.
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Process is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
+
+  /readyz:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Ready to serve traffic.
+        '503':
+          description: Shutting down or not ready.
+
+  /version:
+    get:
+      tags: [health]
+      summary: Build / service metadata
+      security: []
+      responses:
+        '200':
+          description: Service metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service: { type: string }
+                  version: { type: string }
+                  env: { type: string }
+                  node: { type: string }
+                  startedAt: { type: string, format: date-time }
+
+  /capabilities:
+    get:
+      tags: [capabilities]
+      summary: Supported artifact adapters and checks
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
+
+  /upload:
+    post:
+      tags: [upload]
+      summary: Upload a PDF or LaTeX ZIP artifact
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ClientToken'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: string
+                  description: JSON-encoded UploadMetadata.
+      responses:
+        '200':
+          description: Upload accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /artifacts:
+    post:
+      tags: [artifacts]
+      summary: Submit a plain-text / markdown / diff / JSON artifact
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ClientToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactCreateRequest'
+      responses:
+        '200':
+          description: Artifact accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /analyze:
+    post:
+      tags: [analysis]
+      summary: Start an analysis job
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ClientToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /analysis/{analysisId}:
+    get:
+      tags: [analysis]
+      summary: Poll analysis progress and result
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Analysis progress (or ready payload).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '404':
+          description: Analysis not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /oral/ask:
+    post:
+      tags: [oral]
+      summary: Get the next oral defense question (or evaluate an answer)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ClientToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OralAskRequest'
+      responses:
+        '200':
+          description: Question or evaluation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OralAskResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /patch/generate:
+    post:
+      tags: [patch]
+      summary: Generate a unified diff from accepted TODOs
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ClientToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchGenerateRequest'
+      responses:
+        '200':
+          description: Signed URL to the generated diff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchGenerateResponse'
+
+  /report/{reportId}:
+    get:
+      tags: [reports]
+      summary: Get a signed URL to a rendered HTML report
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportGetResponse'
+
+  /sessions/{sessionId}:
+    get:
+      tags: [sessions]
+      summary: Retrieve session metadata
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Session metadata.
+    delete:
+      tags: [sessions]
+      summary: Delete a session and all associated data (right to erasure)
+      description: |
+        Removes the session, its submissions, analyses, and associated
+        GCS objects. Idempotent: deleting a non-existent session returns
+        204 No Content.
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted.
+
+  /settings:
+    get:
+      tags: [settings]
+      summary: Read per-client settings
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [settings]
+      summary: Update per-client settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                retentionPolicy:
+                  $ref: '#/components/schemas/RetentionPolicy'
+      responses:
+        '200':
+          description: OK
+
+components:
+  securitySchemes:
+    clientToken:
+      type: apiKey
+      in: header
+      name: X-Client-Token
+      description: |
+        Opaque client token. The server only stores its SHA-256 hash.
+
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+        pattern: '^[A-Za-z0-9._:~+-]+$'
+      description: |
+        Retries with the same key return the first response unchanged
+        for up to 10 minutes.
+    ClientToken:
+      in: header
+      name: X-Client-Token
+      required: false
+      schema: { type: string }
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Client-generated request ID; server echoes it on the response.
+
+  responses:
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    PayloadTooLarge:
+      description: Request body exceeds the configured limit.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    TooManyRequests:
+      description: Rate limit exceeded.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [INVALID_INPUT, NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR]
+            message: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+
+    ArtifactType:
+      type: string
+      enum: [PAPER, PR, DOC, SHEET]
+
+    RetentionMode:
+      type: string
+      enum: [NO_SAVE, SAVE]
+
+    RetentionPolicy:
+      type: object
+      required: [mode]
+      properties:
+        mode: { $ref: '#/components/schemas/RetentionMode' }
+        ttlHours:
+          type: integer
+          minimum: 1
+          maximum: 8760
+
+    UploadMetadata:
+      type: object
+      properties:
+        artifactType: { $ref: '#/components/schemas/ArtifactType' }
+        language: { type: string }
+        domainTag: { type: string }
+        retentionPolicy: { $ref: '#/components/schemas/RetentionPolicy' }
+
+    UploadResponse:
+      type: object
+      required: [session_id, submission_id, upload_id]
+      properties:
+        session_id: { type: string }
+        submission_id: { type: string }
+        upload_id: { type: string }
+
+    ArtifactCreateRequest:
+      type: object
+      required: [artifact_type, content]
+      properties:
+        artifact_type: { $ref: '#/components/schemas/ArtifactType' }
+        content: { type: string }
+        title: { type: string }
+        content_format:
+          type: string
+          enum: [plain, markdown, diff, json]
+        source_ref: { type: string }
+        language: { type: string }
+        domainTag: { type: string }
+        retentionPolicy: { $ref: '#/components/schemas/RetentionPolicy' }
+
+    AnalyzeRequest:
+      type: object
+      required: [session_id, submission_id]
+      properties:
+        session_id: { type: string }
+        submission_id: { type: string }
+
+    AnalyzeResponse:
+      type: object
+      required: [analysis_id]
+      properties:
+        analysis_id: { type: string }
+
+    AnalysisStatus:
+      type: string
+      enum: [QUEUED, EXTRACTING, ANALYZING, READY, FAILED]
+
+    AnalysisResponse:
+      type: object
+      required: [analysis_id, status, progress]
+      properties:
+        analysis_id: { type: string }
+        status: { $ref: '#/components/schemas/AnalysisStatus' }
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+        step: { type: string }
+        message: { type: string }
+        summary: { type: object }
+        pointers:
+          type: object
+          properties:
+            analysis_json_signed_url: { type: string, format: uri }
+            report_html_signed_url: { type: string, format: uri }
+            extract_json_signed_url: { type: string, format: uri }
+
+    OralAskRequest:
+      type: object
+      required: [analysis_id, turn_id]
+      properties:
+        analysis_id: { type: string }
+        turn_id: { type: string }
+        user_answer: { type: string }
+        context:
+          type: object
+          properties:
+            focus_claim_id: { type: string }
+
+    OralAskResponse:
+      type: object
+      required: [question, follow_up]
+      properties:
+        question: { type: string }
+        follow_up: { type: boolean }
+        evaluation:
+          type: object
+          properties:
+            pass: { type: boolean }
+            reason: { type: string }
+        draft_sentences:
+          type: array
+          items: { type: string }
+        todo_candidate:
+          type: object
+          properties:
+            title: { type: string }
+            impact: { type: number }
+            effort: { type: number }
+
+    PatchGenerateRequest:
+      type: object
+      required: [analysis_id, accepted_todos]
+      properties:
+        analysis_id: { type: string }
+        accepted_todos:
+          type: array
+          items: { type: string }
+        format:
+          type: string
+          enum: [UNIFIED_DIFF]
+
+    PatchGenerateResponse:
+      type: object
+      required: [diff_signed_url]
+      properties:
+        diff_signed_url: { type: string, format: uri }
+        patch_summary:
+          type: object
+          properties:
+            files: { type: integer }
+            hunks: { type: integer }
+
+    ReportGetResponse:
+      type: object
+      required: [report_html_signed_url]
+      properties:
+        report_html_signed_url: { type: string, format: uri }
+
+    CapabilitiesResponse:
+      type: object
+      required: [concept, explain_to_ship, artifact_adapters]
+      properties:
+        concept:
+          type: string
+          enum: [comprehension_assurance]
+        explain_to_ship:
+          type: boolean
+          enum: [true]
+        artifact_adapters:
+          type: array
+          items:
+            type: object
+            required: [artifact_type, status, supported_inputs, key_checks]
+            properties:
+              artifact_type: { $ref: '#/components/schemas/ArtifactType' }
+              status:
+                type: string
+                enum: [ready, beta, planned]
+              supported_inputs:
+                type: array
+                items: { type: string }
+              key_checks:
+                type: array
+                items: { type: string }

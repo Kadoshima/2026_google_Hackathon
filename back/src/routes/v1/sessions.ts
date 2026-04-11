@@ -2,12 +2,19 @@ import type { Hono } from 'hono'
 import { ArtifactType, InputType } from '../../domain/enums.js'
 import type { AnalysisResultJson } from '../../domain/types.js'
 import {
+  deleteSessionCascade,
   getLatestAnalysisBySession,
   getLatestSubmissionBySession,
   getSession
 } from '../../services/firestore.repo.js'
-import { StorageService } from '../../services/storage.service.js'
+import {
+  deleteObject,
+  deletePrefix,
+  StorageService
+} from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
+import { resolveClientTokenHash } from '../../utils/security.js'
+import { logger } from '../../utils/logger.js'
 
 type SessionStatusView = 'active' | 'analyzing' | 'completed' | 'error'
 
@@ -97,6 +104,75 @@ export const registerSessionRoutes = (app: Hono) => {
     } catch (error) {
       return c.json(
         buildError('INTERNAL_ERROR', 'failed to fetch session', {
+          message: error instanceof Error ? error.message : 'unknown error'
+        }),
+        500
+      )
+    }
+  })
+
+  app.delete('/sessions/:sessionId', async (c) => {
+    const sessionId = c.req.param('sessionId')
+    if (!sessionId) {
+      return c.json(buildError('INVALID_INPUT', 'sessionId is required'), 400)
+    }
+
+    const clientTokenHash = resolveClientTokenHash(c.req)
+    const routeLogger = (c.get('logger') ?? logger).child({
+      sessionId,
+      route: 'sessions.delete'
+    })
+
+    try {
+      const session = await getSession({ sessionId })
+
+      // Idempotent: deleting a non-existent session is a no-op.
+      if (!session) {
+        routeLogger.info('session_delete_noop')
+        return c.body(null, 204)
+      }
+
+      // Authorization: only the owner (same client token hash) can delete.
+      if (session.clientTokenHash !== clientTokenHash) {
+        routeLogger.warn('session_delete_forbidden')
+        return c.json(
+          buildError('FORBIDDEN', 'you do not own this session'),
+          403
+        )
+      }
+
+      const summary = await deleteSessionCascade(sessionId)
+
+      for (const ref of summary.gcsObjects) {
+        try {
+          await deleteObject(ref.gsPath)
+        } catch (err) {
+          routeLogger.warn('session_delete_object_failed', {
+            gsPath: ref.gsPath,
+            error: err
+          })
+        }
+      }
+
+      try {
+        await deletePrefix(`raw/${sessionId}/`)
+      } catch (err) {
+        routeLogger.warn('session_delete_prefix_failed', { error: err })
+      }
+
+      routeLogger.info('session_deleted', {
+        submissionCount: summary.submissionCount,
+        analysisCount: summary.analysisCount,
+        conversationTurnCount: summary.conversationTurnCount,
+        gcsObjects: summary.gcsObjects.length,
+        audit: true
+      })
+
+      return c.body(null, 204)
+    } catch (error) {
+      routeLogger.error('session_delete_failed', { error })
+      return c.json(
+        buildError('INTERNAL_ERROR', 'failed to delete session', {
           message: error instanceof Error ? error.message : 'unknown error'
         }),
         500

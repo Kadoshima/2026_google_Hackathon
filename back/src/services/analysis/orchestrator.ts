@@ -24,6 +24,7 @@ import { runPrompt } from '../llm/vertex.client.js'
 import { buildClaimPrompt } from '../llm/prompts.js'
 import { claimOutputSchema } from '../llm/jsonSchemas.js'
 import { AppError, ErrorCodes } from '../../utils/errors.js'
+import { setCostScopeForAsyncFlow } from '../../utils/costGuard.js'
 
 type OrchestratorDependencies = {
   repo?: FirestoreRepo
@@ -171,6 +172,10 @@ export class AnalysisOrchestrator {
     if (!analysis) {
       throw new AppError(ErrorCodes.ANALYSIS_NOT_FOUND, 'analysis not found', 404, { analysisId })
     }
+
+    // Charge every LLM call made inside this pipeline to the session's
+    // cost-guard bucket so that runaway pipelines are capped per-session.
+    setCostScopeForAsyncFlow(`session:${analysis.sessionId}`)
 
     const submission = await this.repo.getSubmission(analysis.submissionId)
     if (!submission) {

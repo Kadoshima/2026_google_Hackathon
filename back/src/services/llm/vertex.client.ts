@@ -1,4 +1,10 @@
 import { GoogleAuth } from 'google-auth-library'
+import {
+  reserveBudget,
+  recordUsage,
+  currentCostScope
+} from '../../utils/costGuard.js'
+import { withSpan } from '../../utils/tracing.js'
 
 export { runPrompt, runPromptWithParts, setVertexTransport }
 
@@ -12,6 +18,17 @@ export type RunPromptOptions = {
   retryDelayMs?: number
   temperature?: number
   model?: string
+  /**
+   * Optional opaque scope (typically session ID) used by the cost guard
+   * to cap per-session LLM spend. When omitted, the global "anonymous"
+   * scope is used.
+   */
+  costScope?: string
+  /**
+   * Short tag used for tracing span names and log attributes.
+   * E.g. "claim_miner", "oral", "preflight".
+   */
+  purpose?: string
 }
 
 export type VertexTextPart = {
@@ -148,6 +165,11 @@ const runPromptWithParts = async <T>(
     throw new Error('VERTEX_PROJECT_ID or GCP_PROJECT_ID is required')
   }
 
+  // Cost guard: reserve budget up-front. Throws QUOTA_EXCEEDED on violation.
+  const costScope = options.costScope ?? currentCostScope() ?? 'anonymous'
+  const inputChars = estimateInputChars(parts)
+  reserveBudget({ scope: costScope, inputChars })
+
   const maxAttempts = resolved.maxRetries + 1
   const modelCandidates = resolveModelCandidates(resolved.model)
   const modelErrors: string[] = []
@@ -164,10 +186,27 @@ const runPromptWithParts = async <T>(
     let lastError: unknown = null
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        const raw = await withTimeout(resolved.timeoutMs, (signal) =>
-          vertexTransport(request, signal)
+        const raw = await withSpan(
+          `llm.vertex.generateContent`,
+          {
+            'llm.vendor': 'google',
+            'llm.model': model,
+            'llm.purpose': options.purpose,
+            'llm.input_chars': inputChars,
+            'llm.attempt': attempt,
+            'llm.cost_scope': costScope
+          },
+          () =>
+            withTimeout(resolved.timeoutMs, (signal) =>
+              vertexTransport(request, signal)
+            )
         )
-        return applySchema(schema, raw)
+        const output = applySchema(schema, raw)
+        recordUsage({
+          scope: costScope,
+          outputChars: estimateOutputChars(raw)
+        })
+        return output
       } catch (error) {
         lastError = error
         if (isModelUnavailableError(error)) {
@@ -195,6 +234,28 @@ const runPromptWithParts = async <T>(
       ', '
     )}): ${modelErrors.join(' | ')}`
   )
+}
+
+const estimateInputChars = (parts: VertexUserPart[]): number => {
+  let total = 0
+  for (const part of parts) {
+    if ('text' in part && typeof part.text === 'string') {
+      total += part.text.length
+    } else if ('inlineData' in part && typeof part.inlineData?.data === 'string') {
+      // Treat a base64-encoded blob as its decoded length (approximate).
+      total += Math.floor(part.inlineData.data.length * 0.75)
+    }
+  }
+  return total
+}
+
+const estimateOutputChars = (raw: unknown): number => {
+  try {
+    const json = typeof raw === 'string' ? raw : JSON.stringify(raw)
+    return json.length
+  } catch {
+    return 0
+  }
 }
 
 const resolveOptions = (

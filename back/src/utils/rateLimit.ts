@@ -1,6 +1,15 @@
+import type { Context, MiddlewareHandler } from 'hono'
+import { createHash } from 'node:crypto'
 import { AppError } from './errors.js'
+import { resolveClientTokenHash } from './security.js'
+import { loadConfig } from './config.js'
 
-export { createFixedWindowRateLimiter, createNoopRateLimiter }
+export {
+  createFixedWindowRateLimiter,
+  createNoopRateLimiter,
+  createRateLimitMiddleware,
+  resolveRateLimitKey
+}
 export type { RateLimiter, RateLimitConfig }
 
 type RateLimitConfig = {
@@ -14,6 +23,19 @@ type RateLimiter = {
 
 const createFixedWindowRateLimiter = (config: RateLimitConfig): RateLimiter => {
   const buckets = new Map<string, { count: number; windowStart: number }>()
+
+  // Periodic GC to keep memory bounded for long-lived processes.
+  // We don't keep a reference; this is a best-effort sweep.
+  const gcIntervalMs = Math.max(config.windowMs * 4, 60_000)
+  const timer = setInterval(() => {
+    const now = Date.now()
+    for (const [key, bucket] of buckets) {
+      if (now - bucket.windowStart >= config.windowMs * 2) {
+        buckets.delete(key)
+      }
+    }
+  }, gcIntervalMs)
+  if (typeof timer.unref === 'function') timer.unref()
 
   return {
     check: (key: string) => {
@@ -43,3 +65,47 @@ const createFixedWindowRateLimiter = (config: RateLimitConfig): RateLimiter => {
 const createNoopRateLimiter = (): RateLimiter => ({
   check: () => {}
 })
+
+/**
+ * Resolve a rate-limit key for a request. Prefers the client-token hash
+ * (so authenticated/known clients are isolated from each other) and
+ * falls back to a best-effort IP from common proxy headers.
+ */
+const resolveRateLimitKey = (c: Context, scope: string): string => {
+  const tokenHash = resolveClientTokenHash(c.req)
+  if (tokenHash && tokenHash !== hashOfAnonymous) {
+    return `${scope}:tk:${tokenHash}`
+  }
+
+  const ip =
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
+    c.req.header('x-real-ip')?.trim() ||
+    c.req.header('cf-connecting-ip')?.trim() ||
+    'unknown'
+  return `${scope}:ip:${ip}`
+}
+
+// Pre-compute the SHA256 of "anonymous" so we can detect un-tokened requests.
+const hashOfAnonymous = createHash('sha256').update('anonymous').digest('hex')
+
+/**
+ * Hono middleware factory. Applies a fixed-window rate limit per
+ * (scope, client) pair.
+ */
+const createRateLimitMiddleware = (
+  scope: string,
+  config: RateLimitConfig
+): MiddlewareHandler => {
+  const cfg = loadConfig()
+  if (!cfg.rateLimit.enabled) {
+    return async (_c, next) => {
+      await next()
+    }
+  }
+  const limiter = createFixedWindowRateLimiter(config)
+  return async (c, next) => {
+    const key = resolveRateLimitKey(c, scope)
+    limiter.check(key)
+    await next()
+  }
+}
