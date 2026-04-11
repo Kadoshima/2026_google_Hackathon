@@ -165,12 +165,23 @@ export const createIdempotencyMiddleware = (
     try {
       await next()
 
-      // Capture and store the response body.
       const res = c.res
+      const status = res.status
+
+      // Only cache successful (2xx) responses. Caching 4xx client errors
+      // is acceptable (the same bad input will always fail), but 5xx
+      // server errors should NOT be cached — they are often transient
+      // (dependency outage, timeout) and the client should be able to
+      // recover on retry once the backend is healthy again.
+      if (status >= 500) {
+        store.release(namespacedKey)
+        return
+      }
+
       const contentType = res.headers.get('content-type') ?? 'application/json; charset=UTF-8'
       const body = await res.clone().text()
       store.save(namespacedKey, {
-        status: res.status,
+        status,
         body,
         contentType,
         createdAt: Date.now()
