@@ -55,7 +55,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: path.join(__dirname),
+    // Point at the monorepo root so Turbopack can resolve hoisted
+    // packages (e.g. next, react) from the root node_modules.
+    root: path.resolve(__dirname, '..'),
   },
   // 全てのインターフェースでリッスン
   allowedDevOrigins: ["localhost", "0.0.0.0"],

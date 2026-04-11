@@ -26,7 +26,7 @@ jobs:
       # Install from root so workspace `file:../shared` links resolve
       # and the root lockfile governs all versions.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund --force
+        run: npm install --no-audit --no-fund
 
       - name: TypeScript build
         run: npm run build -w back
@@ -51,7 +51,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund --force
+        run: npm install --no-audit --no-fund
 
       - name: Lint
         run: npm run lint -w front --if-present
