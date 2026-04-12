@@ -3,7 +3,14 @@ import './globals.css';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { AppShell } from '@/components/layout/AppShell';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.example.com';
+// NEXT_PUBLIC_SITE_URL must be set at build time for production to avoid
+// shipping a bundle that advertises http://localhost:3000 in OG tags,
+// canonical URLs, and the sitemap. We fall back to localhost in dev only.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'https://reviewer-zero.invalid'
+    : 'http://localhost:3000');
 const siteName = 'Reviewer Zero';
 const description =
   'AI時代の説明責任レイヤー。投稿前に「本当に理解しているか」をDecompose → Challenge → Verifyで検証し、説明できた内容だけを成果物に反映します。';

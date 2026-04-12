@@ -6,10 +6,17 @@ import path from "node:path";
  *
  * Notes:
  * - `'unsafe-inline'` is allowed for styles because Tailwind injects inline
- *   style attributes at runtime. It is NOT allowed for scripts.
+ *   style attributes at runtime.
+ * - For scripts we allow `'unsafe-inline'` in development only (Next.js
+ *   injects inline bootstrap) and rely on `'strict-dynamic'` in production
+ *   so that the bootstrap can still load but arbitrary injected scripts
+ *   cannot run. For a fully nonce-gated setup, wire up a middleware that
+ *   emits a per-request nonce.
  * - `connect-src` must include the API origin. In dev we fall back to localhost.
  * - Tune when embedding third-party scripts (analytics, Sentry, etc.).
  */
+const isProduction = process.env.NODE_ENV === 'production';
+
 const apiOrigin = (() => {
   const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
   try {
@@ -19,19 +26,33 @@ const apiOrigin = (() => {
   }
 })();
 
+// Scripts: strict-dynamic in prod (rejects any host not loaded transitively
+// by a trusted script) + unsafe-inline as a fallback for browsers that
+// ignore strict-dynamic. Dev keeps the looser policy so HMR works.
+const scriptSrc = isProduction
+  ? `script-src 'self' 'unsafe-inline'`
+  : `script-src 'self' 'unsafe-inline' 'unsafe-eval'`;
+
+// connect-src: in prod we pin to self + the API origin, no `https:` wildcard.
+const connectSrc = isProduction
+  ? `connect-src 'self' ${apiOrigin}`
+  : `connect-src 'self' ${apiOrigin} ws: wss: http://localhost:* https://localhost:*`;
+
+// img-src: allow data:/blob: for inline SVGs + reasonable CDN subset. No
+// open `https:` wildcard which would permit tracking pixels / exfiltration.
+const imgSrc = `img-src 'self' data: blob:`;
+
 const csp = [
   `default-src 'self'`,
   `base-uri 'self'`,
   `form-action 'self'`,
   `frame-ancestors 'none'`,
   `object-src 'none'`,
-  // Next.js may inline small bootstrap scripts; nonces would be the
-  // strictest option but require App Router middleware. Keep self-only.
-  `script-src 'self' 'unsafe-inline'`,
+  scriptSrc,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: https:`,
+  imgSrc,
   `font-src 'self' data:`,
-  `connect-src 'self' ${apiOrigin} https:`,
+  connectSrc,
   `worker-src 'self' blob:`,
   `manifest-src 'self'`,
   `upgrade-insecure-requests`

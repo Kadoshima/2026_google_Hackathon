@@ -1,9 +1,13 @@
 import type { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.example.com';
+  // NEXT_PUBLIC_SITE_URL is expected to be set at build time for any
+  // production deployment. The fallback is only used for local dev.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const lastModified = new Date();
 
+  // Only include routes that actually exist. Previously /pricing was listed
+  // but there is no app/pricing route — the sitemap would publish 404s.
   return [
     {
       url: `${siteUrl}/`,
@@ -18,10 +22,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8
     },
     {
-      url: `${siteUrl}/pricing`,
+      url: `${siteUrl}/demo`,
       lastModified,
       changeFrequency: 'monthly',
-      priority: 0.8
+      priority: 0.7
     },
     {
       url: `${siteUrl}/legal/privacy`,

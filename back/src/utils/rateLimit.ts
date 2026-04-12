@@ -90,7 +90,8 @@ const hashOfAnonymous = createHash('sha256').update('anonymous').digest('hex')
 
 /**
  * Hono middleware factory. Applies a fixed-window rate limit per
- * (scope, client) pair.
+ * (scope, client) pair. On 429 the standard `Retry-After` header is set
+ * (RFC 6585 §4) so well-behaved clients can back off.
  */
 const createRateLimitMiddleware = (
   scope: string,
@@ -105,7 +106,16 @@ const createRateLimitMiddleware = (
   const limiter = createFixedWindowRateLimiter(config)
   return async (c, next) => {
     const key = resolveRateLimitKey(c, scope)
-    limiter.check(key)
+    try {
+      limiter.check(key)
+    } catch (err) {
+      if (err instanceof AppError && err.code === 'RATE_LIMITED') {
+        const retryAfterMs = (err.details as { retryAfterMs?: number })?.retryAfterMs ?? config.windowMs
+        const retryAfterSec = Math.max(1, Math.ceil(retryAfterMs / 1000))
+        c.header('Retry-After', String(retryAfterSec))
+      }
+      throw err
+    }
     await next()
   }
 }

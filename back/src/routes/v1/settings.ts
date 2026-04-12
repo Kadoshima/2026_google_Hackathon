@@ -1,6 +1,7 @@
 import type { Hono } from 'hono'
 import { firestore } from '../../services/firestore.repo.js'
 import { buildError } from '../../utils/errors.js'
+import { hashClientToken, isAnonymousClient } from '../../utils/security.js'
 
 type SettingsRequest = {
   save_enabled?: boolean
@@ -27,19 +28,17 @@ export const registerSettingsRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
     }
 
-    const clientToken =
-      c.req.header('x-client-token-hash') ??
-      c.req.header('x-client-token')
-
-    if (!clientToken) {
+    const rawClientToken = c.req.header('x-client-token')?.trim()
+    if (!rawClientToken || isAnonymousClient(rawClientToken)) {
       return c.json(buildError('INVALID_INPUT', 'X-Client-Token is required'), 400)
     }
+    const clientTokenHash = hashClientToken(rawClientToken)
 
     try {
       const updatedAt = new Date().toISOString()
       await firestore
         .collection('client_settings')
-        .doc(clientToken)
+        .doc(clientTokenHash)
         .set(
           {
             ...parsed.value,
@@ -50,7 +49,7 @@ export const registerSettingsRoutes = (app: Hono) => {
 
       const response: SettingsResponse = {
         ...parsed.value,
-        client_token: clientToken,
+        client_token: clientTokenHash,
         updated_at: updatedAt
       }
 

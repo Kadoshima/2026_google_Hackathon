@@ -1,6 +1,10 @@
 import type { Hono } from 'hono'
 import type { AnalyzeRequest, AnalyzeResponse } from 'shared'
-import { createAnalysis } from '../../services/firestore.repo.js'
+import {
+  createAnalysis,
+  getSession,
+  getLatestSubmissionBySession
+} from '../../services/firestore.repo.js'
 import {
   enqueueAnalysisTask,
   getTasksDispatchMode
@@ -8,7 +12,7 @@ import {
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
 import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
-import { resolveClientTokenHash } from '../../utils/security.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 
 const analyzeRateLimiter = createFixedWindowRateLimiter({
   maxRequests: Number(process.env.ANALYZE_RATE_LIMIT_MAX ?? 60),
@@ -39,6 +43,37 @@ export const registerAnalyzeRoutes = (app: Hono) => {
     const parsed = parseAnalyzeRequest(body)
     if (!parsed.ok) {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
+    }
+
+    // Authorization: the caller must own the target session before we
+    // spin up a new analysis against it. Without this, any client could
+    // trigger compute on somebody else's session and burn their quota.
+    try {
+      const session = await getSession({ sessionId: parsed.value.session_id })
+      if (!isSessionOwner(session, clientTokenHash)) {
+        return c.json(buildError('NOT_FOUND', 'session not found'), 404)
+      }
+
+      // Ensure the submission belongs to the session as claimed.
+      const submission = await getLatestSubmissionBySession({
+        sessionId: parsed.value.session_id
+      })
+      if (
+        !submission ||
+        submission.submissionId !== parsed.value.submission_id
+      ) {
+        return c.json(
+          buildError('INVALID_INPUT', 'submission does not belong to session'),
+          400
+        )
+      }
+    } catch (error) {
+      return c.json(
+        buildError('INTERNAL_ERROR', 'failed to verify ownership', {
+          message: error instanceof Error ? error.message : 'unknown error'
+        }),
+        500
+      )
     }
 
     const analysisId = makeId('ana')

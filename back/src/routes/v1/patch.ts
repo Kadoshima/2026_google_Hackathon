@@ -1,10 +1,11 @@
 import type { Hono } from 'hono'
 import type { PatchGenerateRequest, PatchGenerateResponse } from 'shared'
-import { getAnalysis } from '../../services/firestore.repo.js'
+import { getAnalysis, getSession } from '../../services/firestore.repo.js'
 import { generateUnifiedDiff } from '../../services/patch/patch.service.js'
 import { getSignedUrl, putText } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 
 export const registerPatchRoutes = (app: Hono) => {
   app.post('/patch/generate', async (c) => {
@@ -20,9 +21,16 @@ export const registerPatchRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const analysis = await getAnalysis({ analysisId: parsed.value.analysis_id })
       if (!analysis) {
+        return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
+      }
+
+      const session = await getSession({ sessionId: analysis.sessionId })
+      if (!isSessionOwner(session, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 

@@ -1,12 +1,23 @@
 # Cloud Run service descriptor for Reviewer Zero backend.
 #
-# Apply with:
-#   gcloud run services replace infra/cloudrun/back-service.yaml \
-#     --region=asia-northeast1
+# IMPORTANT: this file is a TEMPLATE. It contains ${VAR}-style placeholders
+# that must be substituted before it is consumed by `gcloud run services
+# replace`. The recommended flow is:
 #
-# Environment variables and secrets are intentionally referenced by name
-# only — provision them in Secret Manager beforehand and grant the runtime
-# service account "Secret Manager Secret Accessor".
+#   envsubst < infra/cloudrun/back-service.yaml > /tmp/back-service.rendered.yaml
+#   gcloud run services replace /tmp/back-service.rendered.yaml \
+#     --region="${REGION}"
+#
+# Required environment variables:
+#   PROJECT_ID           GCP project ID
+#   REGION               Cloud Run region (e.g. asia-northeast1)
+#   ARTIFACT_REGION      Artifact Registry region (usually == REGION)
+#   IMAGE_TAG            Container image tag (prefer an immutable SHA)
+#   BACKEND_HOSTNAME     Public hostname of this Cloud Run service
+#   FRONTEND_ORIGIN      Comma-separated list of allowed frontend origins
+#
+# Secrets are referenced by Secret Manager name — provision them beforehand
+# and grant the runtime service account "Secret Manager Secret Accessor".
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
@@ -15,7 +26,10 @@ metadata:
     app: reviewer-zero
     component: backend
   annotations:
-    run.googleapis.com/ingress: all
+    # NOTE: keep the service unreachable from the public internet. Expose it
+    # via an HTTPS Load Balancer or API Gateway so that Cloud Armor / WAF
+    # rules can be applied. Change to "all" only for short-lived demos.
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
     run.googleapis.com/launch-stage: GA
 spec:
   template:
@@ -29,9 +43,9 @@ spec:
     spec:
       containerConcurrency: 80
       timeoutSeconds: 600
-      serviceAccountName: reviewer-zero-runtime@PROJECT_ID.iam.gserviceaccount.com
+      serviceAccountName: reviewer-zero-runtime@${PROJECT_ID}.iam.gserviceaccount.com
       containers:
-        - image: REGION-docker.pkg.dev/PROJECT_ID/reviewer-zero/reviewer-zero-back:latest
+        - image: ${ARTIFACT_REGION}-docker.pkg.dev/${PROJECT_ID}/reviewer-zero/reviewer-zero-back:${IMAGE_TAG}
           ports:
             - name: http1
               containerPort: 8080
@@ -41,13 +55,13 @@ spec:
               memory: 1Gi
           startupProbe:
             httpGet:
-              path: /v1/healthz
+              path: /healthz
             periodSeconds: 5
             failureThreshold: 6
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /v1/healthz
+              path: /healthz
             periodSeconds: 30
             failureThreshold: 3
             timeoutSeconds: 3
@@ -61,25 +75,25 @@ spec:
             - name: PORT
               value: "8080"
             - name: ALLOWED_ORIGINS
-              value: "https://your-frontend.example.com"
+              value: ${FRONTEND_ORIGIN}
             - name: CORS_ALLOW_ALL
               value: "false"
             - name: SHUTDOWN_DRAIN_TIMEOUT_MS
               value: "25000"
             # ----- GCP integrations (project IDs/buckets) -----
             - name: GCP_PROJECT_ID
-              value: PROJECT_ID
+              value: ${PROJECT_ID}
             - name: BUCKET_NAME
               value: reviewer-zero-uploads
             - name: TASK_LOCATION
-              value: asia-northeast1
+              value: ${REGION}
             - name: TASK_QUEUE_NAME
               value: reviewer-zero-analysis
             - name: TASKS_TARGET_URL
-              value: https://reviewer-zero-back-XXXX.a.run.app/internal/tasks/analysis
+              value: https://${BACKEND_HOSTNAME}/internal/tasks/analysis
             # ----- Vertex AI -----
             - name: VERTEX_LOCATION
-              value: us-central1
+              value: ${REGION}
             - name: VERTEX_MODEL
               value: gemini-2.5-pro
             # ----- Secrets -----

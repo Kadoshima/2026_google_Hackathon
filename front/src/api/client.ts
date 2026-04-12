@@ -1,8 +1,23 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type { ApiError } from '@/types';
 
-// API base URL (環境変数から取得)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1';
+// API base URL. NEXT_PUBLIC_API_URL is inlined at build time, so we must
+// bake in a defensible fallback — but only for local dev. In a production
+// build we refuse to default to localhost because that would silently
+// break every API call from the deployed frontend.
+const resolveApiBaseUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim().length > 0) return envUrl;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'NEXT_PUBLIC_API_URL must be set at build time for production builds. ' +
+        'Refusing to fall back to http://localhost:8080/v1.'
+    );
+  }
+  return 'http://localhost:8080/v1';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const REQUEST_ID_HEADER = 'X-Request-Id';
 
@@ -152,25 +167,35 @@ class ApiClient {
     return response.data;
   }
 
-  // POST request (JSON)
+  // POST request (JSON). Attaches an Idempotency-Key so retries are safe.
   async post<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.client.post<T>(url, data, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': generateRequestId(),
+      },
     });
     return response.data;
   }
 
-  // POST request (FormData)
+  // POST request (FormData). Attaches an Idempotency-Key so retries are safe.
   async postForm<T>(url: string, formData: FormData): Promise<T> {
     // Let the browser set multipart boundary automatically.
-    const response = await this.client.post<T>(url, formData);
+    const response = await this.client.post<T>(url, formData, {
+      headers: {
+        'Idempotency-Key': generateRequestId(),
+      },
+    });
     return response.data;
   }
 
-  // PUT request
+  // PUT request. Attaches an Idempotency-Key so retries are safe.
   async put<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.client.put<T>(url, data, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': generateRequestId(),
+      },
     });
     return response.data;
   }

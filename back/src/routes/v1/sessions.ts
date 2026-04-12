@@ -13,14 +13,13 @@ import {
   StorageService
 } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
-import { resolveClientTokenHash } from '../../utils/security.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 import { logger } from '../../utils/logger.js'
 
 type SessionStatusView = 'active' | 'analyzing' | 'completed' | 'error'
 
 type SessionResponse = {
   session_id: string
-  client_token: string
   title?: string
   analysis_id?: string
   status: SessionStatusView
@@ -61,9 +60,18 @@ export const registerSessionRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', 'sessionId is required'), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const session = await getSession({ sessionId })
       if (!session) {
+        return c.json(buildError('NOT_FOUND', 'session not found'), 404)
+      }
+
+      // Authorization: only the owner can read the session. Returning 404
+      // rather than 403 avoids leaking the existence of sessions to
+      // unauthorized callers.
+      if (!isSessionOwner(session, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'session not found'), 404)
       }
 
@@ -75,7 +83,9 @@ export const registerSessionRoutes = (app: Hono) => {
       const settings = toSettings(session.retentionPolicy, session.language)
       const response: SessionResponse = {
         session_id: session.sessionId,
-        client_token: session.clientTokenHash,
+        // Do not leak the stored clientTokenHash back to the caller — it is
+        // used as an ownership identifier and exposing it enables
+        // impersonation attacks.
         ...(analysis ? { analysis_id: analysis.analysisId } : {}),
         ...(submission
           ? {
@@ -133,7 +143,7 @@ export const registerSessionRoutes = (app: Hono) => {
       }
 
       // Authorization: only the owner (same client token hash) can delete.
-      if (session.clientTokenHash !== clientTokenHash) {
+      if (!isSessionOwner(session, clientTokenHash)) {
         routeLogger.warn('session_delete_forbidden')
         return c.json(
           buildError('FORBIDDEN', 'you do not own this session'),
@@ -186,7 +196,14 @@ export const registerSessionRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', 'sessionId is required'), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
+      const session = await getSession({ sessionId })
+      if (!isSessionOwner(session, clientTokenHash)) {
+        return c.json(buildError('NOT_FOUND', 'session not found'), 404)
+      }
+
       const analysis = await getLatestAnalysisBySession({ sessionId })
       if (!analysis?.pointers?.gcsAnalysisJson) {
         const empty: TodoResponse = { items: [] }

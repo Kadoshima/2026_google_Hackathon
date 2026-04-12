@@ -1,6 +1,10 @@
 import type { Hono } from 'hono'
 import type { ReportGenerateResponse, ReportGetResponse } from 'shared'
-import { getAnalysis, setPointers } from '../../services/firestore.repo.js'
+import {
+  getAnalysis,
+  getSession,
+  setPointers
+} from '../../services/firestore.repo.js'
 import { getSignedUrl } from '../../services/storage.service.js'
 import {
   getReportRecord,
@@ -9,6 +13,7 @@ import {
 } from '../../services/report/report.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 
 export const registerReportRoutes = (app: Hono) => {
   app.post('/report/generate', async (c) => {
@@ -24,9 +29,16 @@ export const registerReportRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const analysis = await getAnalysis({ analysisId: parsed.value.analysis_id })
       if (!analysis) {
+        return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
+      }
+
+      const session = await getSession({ sessionId: analysis.sessionId })
+      if (!isSessionOwner(session, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 
@@ -61,9 +73,20 @@ export const registerReportRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', 'reportId is required'), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const record = await getReportRecord(reportId)
       if (!record) {
+        return c.json(buildError('NOT_FOUND', 'report not found'), 404)
+      }
+
+      const analysis = await getAnalysis({ analysisId: record.analysisId })
+      if (!analysis) {
+        return c.json(buildError('NOT_FOUND', 'report not found'), 404)
+      }
+      const session = await getSession({ sessionId: analysis.sessionId })
+      if (!isSessionOwner(session, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'report not found'), 404)
       }
 

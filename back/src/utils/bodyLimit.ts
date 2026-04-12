@@ -20,13 +20,33 @@ export const createBodyLimitMiddleware = (): MiddlewareHandler => {
 
   return async (c, next) => {
     const contentType = (c.req.header('content-type') ?? '').toLowerCase()
-    // Skip non-JSON requests; uploads go through the multipart guard.
-    if (!contentType.includes('application/json')) {
+    const method = c.req.method.toUpperCase()
+    // Only enforce on methods that carry a body, but check ALL body-bearing
+    // requests regardless of Content-Type — otherwise a client could set
+    // `Content-Type: text/plain` and stream megabytes to bypass the check.
+    // Uploads use multipart/form-data and are handled here by the size
+    // check too (their own route also clamps the file size).
+    const isBodyMethod =
+      method === 'POST' ||
+      method === 'PUT' ||
+      method === 'PATCH' ||
+      method === 'DELETE'
+    if (!isBodyMethod) {
       await next()
       return
     }
 
-    // Fast-path: reject early when Content-Length is present and too large.
+    // Multipart uploads have their own per-route limits (larger ceilings
+    // for PDFs / ZIPs). Skip the JSON-oriented global cap for them.
+    if (contentType.startsWith('multipart/form-data')) {
+      await next()
+      return
+    }
+
+    // Fast-path: reject early when Content-Length is present and already
+    // too large. This is not a substitute for measuring actual bytes — a
+    // client can under-report Content-Length and stream more — but it
+    // avoids buffering when the intent is obviously over the limit.
     const contentLengthHeader = c.req.header('content-length')
     if (contentLengthHeader) {
       const contentLength = Number(contentLengthHeader)
@@ -40,53 +60,50 @@ export const createBodyLimitMiddleware = (): MiddlewareHandler => {
       }
     }
 
-    // Slow-path: when Content-Length is absent (chunked encoding, etc.),
-    // consume the body and verify size. We buffer the body once and
-    // reassemble it into a new Request so downstream handlers can still
-    // call c.req.json().
-    if (!contentLengthHeader) {
-      const body = c.req.raw.body
-      if (body) {
-        const chunks: Uint8Array[] = []
-        let totalBytes = 0
-        const reader = body.getReader()
-        try {
-          for (;;) {
-            const { done, value } = await reader.read()
-            if (done) break
-            totalBytes += value.byteLength
-            if (totalBytes > limit) {
-              reader.cancel()
-              throw new AppError(
-                'PAYLOAD_TOO_LARGE',
-                `request body exceeds limit of ${limit} bytes`,
-                413,
-                { limit, received: totalBytes }
-              )
-            }
-            chunks.push(value)
+    // Slow-path: ALWAYS measure the actual bytes consumed from the stream,
+    // regardless of whether Content-Length was present. This catches
+    // chunked encoding and header forgery.
+    const body = c.req.raw.body
+    if (body) {
+      const chunks: Uint8Array[] = []
+      let totalBytes = 0
+      const reader = body.getReader()
+      try {
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          totalBytes += value.byteLength
+          if (totalBytes > limit) {
+            reader.cancel()
+            throw new AppError(
+              'PAYLOAD_TOO_LARGE',
+              `request body exceeds limit of ${limit} bytes`,
+              413,
+              { limit, received: totalBytes }
+            )
           }
-        } finally {
-          reader.releaseLock()
+          chunks.push(value)
         }
-
-        // Reassemble the consumed body so downstream c.req.json() works.
-        const merged = new Uint8Array(totalBytes)
-        let offset = 0
-        for (const chunk of chunks) {
-          merged.set(chunk, offset)
-          offset += chunk.byteLength
-        }
-
-        const originalRequest = c.req.raw
-        const newRequest = new Request(originalRequest.url, {
-          method: originalRequest.method,
-          headers: originalRequest.headers,
-          body: merged
-        })
-        // Hono exposes the raw Request; replace it in-place.
-        ;(c.req as unknown as { raw: Request }).raw = newRequest
+      } finally {
+        reader.releaseLock()
       }
+
+      // Reassemble the consumed body so downstream c.req.json() works.
+      const merged = new Uint8Array(totalBytes)
+      let offset = 0
+      for (const chunk of chunks) {
+        merged.set(chunk, offset)
+        offset += chunk.byteLength
+      }
+
+      const originalRequest = c.req.raw
+      const newRequest = new Request(originalRequest.url, {
+        method: originalRequest.method,
+        headers: originalRequest.headers,
+        body: merged
+      })
+      // Hono exposes the raw Request; replace it in-place.
+      ;(c.req as unknown as { raw: Request }).raw = newRequest
     }
 
     await next()

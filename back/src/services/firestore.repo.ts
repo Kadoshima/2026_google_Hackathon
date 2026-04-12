@@ -599,10 +599,14 @@ export const deleteSessionCascade = async (
     if (pointers?.gcsReportHtml) gcsObjects.push({ gsPath: pointers.gcsReportHtml })
     analysisCount += 1
 
+    // Match the subcollection name used in saveConversationTurn ('conversations').
+    // The previous name 'conversation_turns' caused every cascade delete to
+    // report 0 turns while leaving user conversation data in Firestore —
+    // a direct violation of right-to-erasure.
     const turns = await firestore
       .collection('analyses')
       .doc(doc.id)
-      .collection('conversation_turns')
+      .collection('conversations')
       .get()
     conversationTurnCount += turns.size
     for (const turn of turns.docs) {
@@ -610,11 +614,21 @@ export const deleteSessionCascade = async (
     }
   }
 
-  const batch = firestore.batch()
-  submissionsSnap.docs.forEach((doc) => batch.delete(doc.ref))
-  analysesSnap.docs.forEach((doc) => batch.delete(doc.ref))
-  batch.delete(firestore.collection('sessions').doc(sessionId))
-  await batch.commit()
+  // Firestore batches are capped at 500 operations. Chunk the deletes to
+  // respect that limit; a session with many submissions + analyses would
+  // otherwise fail the entire cascade.
+  const allRefs = [
+    ...submissionsSnap.docs.map((doc) => doc.ref),
+    ...analysesSnap.docs.map((doc) => doc.ref),
+    firestore.collection('sessions').doc(sessionId)
+  ]
+  const BATCH_LIMIT = 450 // leave headroom for transactional safety
+  for (let i = 0; i < allRefs.length; i += BATCH_LIMIT) {
+    const chunk = allRefs.slice(i, i + BATCH_LIMIT)
+    const batch = firestore.batch()
+    chunk.forEach((ref) => batch.delete(ref))
+    await batch.commit()
+  }
 
   return {
     sessionId,
@@ -672,9 +686,17 @@ export const findExpiredSessions = async (
       const policy = data.retentionPolicy
       if (!policy) continue
 
+      // Anchor expiry on updatedAt (last activity) instead of createdAt.
+      // A long-running SAVE-mode session that the user is still interacting
+      // with should not be swept just because it was created a long time
+      // ago. Fall back to createdAt when updatedAt is missing.
       const createdAtStr = toStoredDate(data.createdAt)
-      const createdAtMs = parseIsoMillis(createdAtStr)
-      if (createdAtMs === null) continue
+      const updatedAtStr = data.updatedAt
+        ? toStoredDate(data.updatedAt)
+        : createdAtStr
+      const anchorMs =
+        parseIsoMillis(updatedAtStr) ?? parseIsoMillis(createdAtStr)
+      if (anchorMs === null) continue
 
       const ttlHours =
         policy.ttlHours ??
@@ -682,7 +704,7 @@ export const findExpiredSessions = async (
 
       if (ttlHours === null) continue
 
-      const expiresAtMs = createdAtMs + ttlHours * 60 * 60 * 1000
+      const expiresAtMs = anchorMs + ttlHours * 60 * 60 * 1000
       if (now.getTime() >= expiresAtMs) {
         expired.push({ sessionId: data.sessionId, createdAt: createdAtStr, policy })
         if (expired.length >= limit) break

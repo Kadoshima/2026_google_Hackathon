@@ -17,9 +17,11 @@ export const nextQuestion = async (
     ? `Claim ${focusClaimId} を支える実験条件と比較対象を、1文で具体化してください。`
     : 'この研究の新規性を、比較対象を含めて1文で説明してください。'
   const focusClaimText = llmInput?.focusClaimText ?? fallbackQuestion
+  // When we have no extracted document text available, fall back to a
+  // neutral placeholder instead of leaking internal IDs into the prompt.
+  // Leaking analysisId / focusClaimId would only produce garbage questions.
   const extractedText =
-    llmInput?.extractedText ??
-    `analysisId: ${analysisId}\nfocusClaimId: ${focusClaimId ?? '(none)'}`
+    llmInput?.extractedText ?? '(no extracted document available)'
 
   const question = await buildQuestionWithLlmOrFallback({
     focusClaimId: focusClaimId ?? 'claim_1',
@@ -36,10 +38,38 @@ export const nextQuestion = async (
     }
   }
 
-  const pass = normalizedAnswer.length >= 80
+  // Heuristic answer scoring. We deliberately avoid a pure char-count
+  // threshold ("80 chars = pass") because that is gameable with noise.
+  // Combine multiple weak signals: length, presence of numeric evidence,
+  // comparison language, and citation-like markers.
+  const hasNumbers = /\d+(\.\d+)?\s*(%|ms|s|min|px|MB|GB|倍|件|本|名)?/.test(
+    normalizedAnswer
+  )
+  const hasComparison = /(比較|対比|ベースライン|従来|既存|baseline|compared?|than|vs\.?)/i.test(
+    normalizedAnswer
+  )
+  const hasEvidenceRef = /(図|表|節|段落|Fig\.?|Table|Section|§|p\.?\s*\d+)/i.test(
+    normalizedAnswer
+  )
+  const longEnough = normalizedAnswer.length >= 60
+  const passSignals =
+    (longEnough ? 1 : 0) +
+    (hasNumbers ? 1 : 0) +
+    (hasComparison ? 1 : 0) +
+    (hasEvidenceRef ? 1 : 0)
+
+  // Require at least 3 of 4 signals to "pass" the heuristic check.
+  const pass = passSignals >= 3
+
+  const missing: string[] = []
+  if (!longEnough) missing.push('十分な説明量')
+  if (!hasNumbers) missing.push('定量的な根拠(数値・単位)')
+  if (!hasComparison) missing.push('比較対象(ベースラインや従来手法)')
+  if (!hasEvidenceRef) missing.push('根拠の参照(図/表/節/段落)')
+
   const reason = pass
-    ? '主張の骨子は明確です。次は根拠の定量性を補強しましょう。'
-    : '回答が短く根拠が不足しています。比較条件・数値・根拠段落を追加してください。'
+    ? '主張の骨子は明確です。次は根拠の定量性と比較範囲をさらに絞り込みましょう。'
+    : `回答に不足している要素があります: ${missing.join('、')}。これらを1文ずつ補強してください。`
 
   return {
     question,

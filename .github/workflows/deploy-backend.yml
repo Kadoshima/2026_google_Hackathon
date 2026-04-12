@@ -17,6 +17,7 @@ on:
 #   vars.GCP_REGION                         - e.g. asia-northeast1
 #   vars.CLOUD_RUN_SERVICE                  - Cloud Run service name (e.g. reviewer-zero-back)
 #   vars.ARTIFACT_REPO                      - Artifact Registry repo (e.g. reviewer-zero)
+#   vars.FRONTEND_ORIGIN                    - comma-separated allowed frontend origins
 #
 # Until those are configured, this workflow runs in "dry-run" mode and only
 # validates the build / image inputs.
@@ -32,8 +33,14 @@ jobs:
 
       - name: Skip if secrets are not configured
         id: gate
+        # SECURITY: do not interpolate secret / var values directly into a
+        # shell script. Route them through env: and read with $VAR so that a
+        # value containing quotes or `$(...)` cannot break out of the string.
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
         run: |
-          if [ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] || [ -z "${{ vars.GCP_PROJECT_ID }}" ]; then
+          if [ -z "${WIF_PROVIDER}" ] || [ -z "${GCP_PROJECT_ID}" ]; then
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             echo "Deployment secrets not configured; running in dry-run mode."
           else
@@ -53,12 +60,20 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         if: steps.gate.outputs.deploy == 'true'
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
       - name: Build image
         if: steps.gate.outputs.deploy == 'true'
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          ARTIFACT_REPO: ${{ vars.ARTIFACT_REPO }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          GITHUB_SHA_TAG: ${{ github.sha }}
         run: |
-          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPO }}/${{ vars.CLOUD_RUN_SERVICE }}:${{ github.sha }}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${CLOUD_RUN_SERVICE}:${GITHUB_SHA_TAG}"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
           docker build -f back/Dockerfile -t "$IMAGE" .
 
@@ -68,16 +83,40 @@ jobs:
 
       - name: Deploy to Cloud Run
         if: steps.gate.outputs.deploy == 'true'
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
         run: |
-          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+          set -euo pipefail
+          # NOTE: we use --no-allow-unauthenticated by default. Flip to
+          # --allow-unauthenticated only on short-lived public demos.
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
             --image "$IMAGE" \
-            --region "${{ vars.GCP_REGION }}" \
+            --region "${GCP_REGION}" \
             --platform managed \
-            --allow-unauthenticated \
+            --no-allow-unauthenticated \
+            --ingress=internal-and-cloud-load-balancing \
             --port 8080 \
             --cpu 2 --memory 1Gi \
             --concurrency 80 \
             --min-instances 0 --max-instances 10 \
             --timeout 600 \
-            --set-env-vars NODE_ENV=production,SERVICE_NAME=${{ vars.CLOUD_RUN_SERVICE }} \
+            --set-env-vars "NODE_ENV=production,SERVICE_NAME=${CLOUD_RUN_SERVICE},ALLOWED_ORIGINS=${FRONTEND_ORIGIN:-}" \
             --quiet
+
+      - name: Smoke test deployed revision
+        if: steps.gate.outputs.deploy == 'true'
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+        run: |
+          set -euo pipefail
+          URL=$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
+            --region "${GCP_REGION}" --format='value(status.url)')
+          echo "Service URL: ${URL}"
+          # The service is authenticated, so /healthz requires an identity
+          # token. Use gcloud to mint one for the deploying service account.
+          TOKEN=$(gcloud auth print-identity-token)
+          curl -fsS -H "Authorization: Bearer ${TOKEN}" "${URL}/healthz" \
+            || { echo "Smoke test failed"; exit 1; }

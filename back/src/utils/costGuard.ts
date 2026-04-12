@@ -87,6 +87,9 @@ type Bucket = {
 }
 
 const buckets = new Map<string, Bucket>()
+// Cap the map so an attacker cannot inflate memory by generating unique
+// session IDs and calling endpoints that touch the cost guard.
+const MAX_BUCKETS = 10_000
 
 const getBucket = (scope: string, now: number, windowMs: number): Bucket => {
   const current = buckets.get(scope)
@@ -98,9 +101,35 @@ const getBucket = (scope: string, now: number, windowMs: number): Bucket => {
       windowStart: now
     }
     buckets.set(scope, fresh)
+    // Evict the oldest entries (Map preserves insertion order) if we
+    // blow the cap. This is coarse but bounded and matches the
+    // idempotency store's eviction policy.
+    while (buckets.size > MAX_BUCKETS) {
+      const firstKey = buckets.keys().next().value
+      if (firstKey === undefined) break
+      buckets.delete(firstKey)
+    }
     return fresh
   }
   return current
+}
+
+/**
+ * Roll back a previously reserved budget. Call this when the LLM request
+ * itself failed (network error, transport 5xx, timeout) so the caller
+ * does not permanently consume quota for calls that produced no value.
+ * Successful calls should use recordUsage() instead.
+ */
+export const releaseReservation = (params: {
+  scope: string
+  inputChars: number
+}): void => {
+  const cfg = loadCostGuardConfig()
+  if (!cfg.enabled) return
+  const bucket = buckets.get(params.scope)
+  if (!bucket) return
+  bucket.calls = Math.max(0, bucket.calls - 1)
+  bucket.inputChars = Math.max(0, bucket.inputChars - params.inputChars)
 }
 
 /**

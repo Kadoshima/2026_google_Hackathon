@@ -3,12 +3,16 @@
  * security headers, and a centralized error handler.
  */
 
-import type { Context, MiddlewareHandler } from 'hono'
+import type { MiddlewareHandler } from 'hono'
 import { randomUUID } from 'node:crypto'
 import { logger, type Logger } from './logger.js'
-import { isAppError, toErrorResponse } from './errors.js'
 
 const REQUEST_ID_HEADER = 'X-Request-Id'
+// Allowed: alphanumerics, hyphen, underscore, dot, colon. This is a
+// strict subset of RFC 4122 UUIDs and common trace-id formats, and
+// rejects control characters / whitespace / unicode that could be
+// abused for log injection.
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:\-]{1,128}$/
 
 /**
  * Hono context variable map. Other handlers can read these via c.get().
@@ -28,7 +32,11 @@ declare module 'hono' {
 export const requestIdMiddleware = (): MiddlewareHandler => {
   return async (c, next) => {
     const inbound = c.req.header(REQUEST_ID_HEADER)?.trim()
-    const requestId = inbound && inbound.length <= 128 ? inbound : randomUUID()
+    // Only trust an inbound request id if it matches a conservative
+    // character set. Otherwise the value flows into log lines and the
+    // response header, which is a log-injection surface.
+    const requestId =
+      inbound && REQUEST_ID_PATTERN.test(inbound) ? inbound : randomUUID()
     c.set('requestId', requestId)
     c.set('startTime', Date.now())
     c.set(
@@ -96,42 +104,8 @@ export const securityHeadersMiddleware = (): MiddlewareHandler => {
 }
 
 /**
- * Catches any thrown error and converts it to a JSON response.
- * Wraps unknown errors as INTERNAL_ERROR and logs them with the request id.
+ * NOTE: error handling lives in `app.onError` in server.ts. The previous
+ * `errorHandlerMiddleware` shipped here was removed because it duplicated
+ * that handler and used an unusual `c.res = c.json(...)` assignment that
+ * could race with other middleware writing to the same response.
  */
-export const errorHandlerMiddleware = (): MiddlewareHandler => {
-  return async (c, next) => {
-    try {
-      await next()
-    } catch (error) {
-      handleError(c, error)
-    }
-  }
-}
-
-const handleError = (c: Context, error: unknown) => {
-  const reqLogger = c.get('logger') ?? logger
-  const { status, payload } = toErrorResponse(error)
-
-  if (isAppError(error) && status < 500) {
-    reqLogger.warn('request_failed', {
-      code: payload.error.code,
-      status,
-      message: payload.error.message
-    })
-  } else {
-    reqLogger.error('request_failed', {
-      status,
-      error,
-      code: payload.error.code
-    })
-  }
-
-  // Mirror requestId into the body so users can quote it in support tickets.
-  const requestId = c.get('requestId')
-  if (requestId) {
-    payload.error.details = { ...(payload.error.details ?? {}), requestId }
-  }
-
-  c.res = c.json(payload, status)
-}

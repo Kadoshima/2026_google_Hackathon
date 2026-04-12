@@ -1,9 +1,10 @@
 import type { Hono } from 'hono'
 import type { AnalysisReadyResponse, AnalysisResponse, AnalysisSummary } from 'shared'
 import type { Analysis, AnalysisResultJson } from '../../domain/types.js'
-import { getAnalysis } from '../../services/firestore.repo.js'
+import { getAnalysis, getSession } from '../../services/firestore.repo.js'
 import { getSignedUrl, StorageService } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 
 const storageService = new StorageService()
 
@@ -14,10 +15,20 @@ export const registerAnalysisRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', 'analysisId is required'), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const analysis = await getAnalysis({ analysisId })
 
       if (!analysis) {
+        return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
+      }
+
+      // Authorization: verify the caller owns the parent session. Without
+      // this, any client with a known analysisId could read the result
+      // payload and obtain signed GCS URLs.
+      const session = await getSession({ sessionId: analysis.sessionId })
+      if (!isSessionOwner(session, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 

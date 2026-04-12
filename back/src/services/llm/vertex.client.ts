@@ -2,9 +2,11 @@ import { GoogleAuth } from 'google-auth-library'
 import {
   reserveBudget,
   recordUsage,
+  releaseReservation,
   currentCostScope
 } from '../../utils/costGuard.js'
 import { withSpan } from '../../utils/tracing.js'
+import { logger } from '../../utils/logger.js'
 
 export { runPrompt, runPromptWithParts, setVertexTransport }
 
@@ -133,8 +135,13 @@ async function defaultVertexTransport(
   try {
     return JSON.parse(normalizedText) as unknown
   } catch {
-    const preview = normalizedText.replace(/\s+/g, ' ').slice(0, 280)
-    throw new Error(`Vertex API candidate is not valid JSON (preview: ${preview})`)
+    // Do NOT include the raw LLM output in the thrown error message. It may
+    // contain PII or proprietary text from the user's uploaded document and
+    // could end up in logs or API responses. Log length only for diagnosis.
+    logger.warn('vertex_candidate_json_parse_failed', {
+      candidateLength: normalizedText.length
+    })
+    throw new Error('Vertex API candidate is not valid JSON')
   }
 }
 
@@ -228,6 +235,10 @@ const runPromptWithParts = async <T>(
 
     modelErrors.push(`${model}: ${toErrorMessage(lastError)}`)
   }
+
+  // All models + retries failed. Roll back the reserved budget so a
+  // permanently broken upstream does not eat the caller's quota.
+  releaseReservation({ scope: costScope, inputChars })
 
   throw new Error(
     `runPrompt failed after ${maxAttempts} attempts across models (${modelCandidates.join(

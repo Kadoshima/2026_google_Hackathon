@@ -5,11 +5,14 @@ import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 /**
- * App-router error boundary. Caught errors thrown by any client component
- * inside this segment surface here. Includes a "Reset" CTA so users can
- * recover without a full reload.
+ * Segment-level error boundary. Catches errors thrown inside this app
+ * segment (below the root layout). Errors thrown by the root layout or
+ * providers in layout.tsx must be caught by a separate `global-error.tsx`.
+ *
+ * Named `SegmentError` rather than `GlobalError` so the distinction is
+ * clear to future maintainers.
  */
-export default function GlobalError({
+export default function SegmentError({
   error,
   reset,
 }: {

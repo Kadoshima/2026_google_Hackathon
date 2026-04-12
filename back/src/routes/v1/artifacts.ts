@@ -3,11 +3,12 @@ import type { ArtifactCreateRequest, UploadResponse } from 'shared'
 import { ArtifactType, InputType, RetentionMode } from '../../domain/enums.js'
 import type { RetentionPolicy } from '../../domain/types.js'
 import { createSession, createSubmission } from '../../services/firestore.repo.js'
-import { putRawFile } from '../../services/storage.service.js'
+import { deleteObject, putRawFile } from '../../services/storage.service.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
 import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
 import { resolveClientTokenHash } from '../../utils/security.js'
+import { logger } from '../../utils/logger.js'
 
 type SupportedArtifactType = Exclude<ArtifactType, 'PAPER'>
 
@@ -66,6 +67,7 @@ export const registerArtifactRoutes = (app: Hono) => {
       mode: RetentionMode.NO_SAVE
     }
 
+    let gcsPathRaw: string | undefined
     try {
       const inputType = toInputType(parsed.value.artifact_type)
       const fileName = buildArtifactFileName(
@@ -73,7 +75,7 @@ export const registerArtifactRoutes = (app: Hono) => {
         parsed.value.title,
         parsed.value.content_format
       )
-      const gcsPathRaw = await putRawFile({
+      gcsPathRaw = await putRawFile({
         sessionId,
         submissionId,
         fileName,
@@ -105,6 +107,17 @@ export const registerArtifactRoutes = (app: Hono) => {
 
       return c.json(response, 200)
     } catch (error) {
+      // Best-effort orphan cleanup — see upload.ts for rationale.
+      if (gcsPathRaw) {
+        try {
+          await deleteObject(gcsPathRaw)
+        } catch (cleanupErr) {
+          logger.warn('artifact_orphan_cleanup_failed', {
+            gsPath: gcsPathRaw,
+            error: cleanupErr
+          })
+        }
+      }
       return c.json(
         buildError('INTERNAL_ERROR', 'failed to persist artifact', {
           message: error instanceof Error ? error.message : 'unknown error'

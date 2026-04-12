@@ -32,7 +32,10 @@ export type IdempotencyStore = {
   release: (key: string) => void
 }
 
-const DEFAULT_TTL_MS = 10 * 60 * 1000 // 10 minutes
+const DEFAULT_TTL_MS = 10 * 60 * 1000 // 10 minutes for completed entries
+// Pending entries can live much longer to cover slow LLM pipelines. We cap
+// them at 1 hour so a truly dead pending entry cannot wedge a key forever.
+const PENDING_MAX_MS = 60 * 60 * 1000
 const MAX_ENTRIES = 10_000
 
 export const createInMemoryIdempotencyStore = (
@@ -47,8 +50,17 @@ export const createInMemoryIdempotencyStore = (
   const gc = () => {
     const now = Date.now()
     for (const [key, entry] of entries) {
-      const createdAt = entry.state === 'pending' ? entry.createdAt : entry.response.createdAt
-      if (now - createdAt > ttlMs) {
+      if (entry.state === 'pending') {
+        // Do NOT reap active pending entries on the normal ttl cadence —
+        // reaping them would allow a second request with the same key to
+        // acquire a reservation and produce a duplicate side effect, which
+        // is precisely what the idempotency middleware is meant to prevent.
+        if (now - entry.createdAt > PENDING_MAX_MS) {
+          entries.delete(key)
+        }
+        continue
+      }
+      if (now - entry.response.createdAt > ttlMs) {
         entries.delete(key)
       }
     }

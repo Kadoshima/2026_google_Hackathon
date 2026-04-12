@@ -18,6 +18,20 @@ const app = createApp()
 const fetchApp = (path: string, init?: RequestInit) =>
   app.fetch(new Request(`http://localhost${path}`, init))
 
+test('GET /healthz (root) returns 200 ok for Cloud Run probes', async () => {
+  const res = await fetchApp('/healthz')
+  assert.equal(res.status, 200)
+  const body = await res.json()
+  assert.deepEqual(body, { status: 'ok' })
+})
+
+test('GET /readyz (root) returns 200 when not shutting down', async () => {
+  const res = await fetchApp('/readyz')
+  assert.equal(res.status, 200)
+  const body = (await res.json()) as { status: string }
+  assert.equal(body.status, 'ready')
+})
+
 test('GET /v1/healthz returns 200 ok', async () => {
   const res = await fetchApp('/v1/healthz')
   assert.equal(res.status, 200)
@@ -61,6 +75,33 @@ test('Server echoes provided X-Request-Id header', async () => {
     headers: { 'X-Request-Id': sentinel }
   })
   assert.equal(res.headers.get('x-request-id'), sentinel)
+})
+
+test('Malformed X-Request-Id is replaced with a generated id', async () => {
+  // Contains characters outside the permitted [A-Za-z0-9._:-] set.
+  // Space, semicolon, and slash are all valid HTTP header characters but
+  // our middleware still rejects them to keep log lines parse-safe.
+  const malformed = 'bad id;with/forbidden chars'
+  const res = await fetchApp('/v1/healthz', {
+    headers: { 'X-Request-Id': malformed }
+  })
+  const echoed = res.headers.get('x-request-id')
+  assert.ok(echoed)
+  assert.notEqual(echoed, malformed)
+  // Our replacement must not contain any of the forbidden characters.
+  assert.ok(!/[ ;/]/.test(echoed!))
+})
+
+test('POST /v1/analyze rejects request with INVALID_INPUT before auth when body is bad', async () => {
+  // Sanity check that parsing still runs ahead of the ownership check.
+  const res = await fetchApp('/v1/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Client-Token': 'tok' },
+    body: JSON.stringify({})
+  })
+  assert.equal(res.status, 400)
+  const body = (await res.json()) as { error: { code: string } }
+  assert.equal(body.error.code, 'INVALID_INPUT')
 })
 
 test('Security headers are present on responses', async () => {

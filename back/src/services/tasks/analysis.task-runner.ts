@@ -2,6 +2,7 @@ import { AnalysisStatus, AnalysisStep } from '../../domain/enums.js'
 import { AnalysisOrchestrator } from '../analysis/orchestrator.js'
 import { FirestoreRepo } from '../firestore.repo.js'
 import { ErrorCodes } from '../../utils/errors.js'
+import { logger } from '../../utils/logger.js'
 
 export type AnalysisTaskRunInput = {
   analysisId: string
@@ -87,8 +88,8 @@ export const runAnalysisTask = async (
     }
   } catch (error) {
     if (lockAcquired) {
-      await repo
-        .updateAnalysisStatus(
+      try {
+        await repo.updateAnalysisStatus(
           analysisId,
           AnalysisStatus.FAILED,
           100,
@@ -99,13 +100,33 @@ export const runAnalysisTask = async (
             messageInternal: error instanceof Error ? error.message : 'unknown'
           }
         )
-        .catch(() => {})
+      } catch (nestedErr) {
+        // CRITICAL: failing to write FAILED status means the analysis will
+        // remain stuck in ANALYZING forever. Log loudly so an operator can
+        // reconcile manually. We still proceed to release the lock below.
+        logger.error('analysis_task_failed_status_update_error', {
+          analysisId,
+          requestId,
+          originalError: error instanceof Error ? error.message : String(error),
+          nestedError:
+            nestedErr instanceof Error ? nestedErr.message : String(nestedErr)
+        })
+      }
     }
 
     throw error
   } finally {
     if (lockAcquired) {
-      await repo.releaseAnalysisLock(analysisId, lockOwner).catch(() => {})
+      try {
+        await repo.releaseAnalysisLock(analysisId, lockOwner)
+      } catch (releaseErr) {
+        logger.error('analysis_task_lock_release_failed', {
+          analysisId,
+          requestId,
+          error:
+            releaseErr instanceof Error ? releaseErr.message : String(releaseErr)
+        })
+      }
     }
   }
 }

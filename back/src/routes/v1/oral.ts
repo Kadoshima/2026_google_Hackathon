@@ -11,6 +11,7 @@ import { StorageService } from '../../services/storage.service.js'
 import { nextQuestion } from '../../services/oralDefense/oralExaminer.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
+import { resolveClientTokenHash, isSessionOwner } from '../../utils/security.js'
 
 const storageService = new StorageService()
 
@@ -28,9 +29,16 @@ export const registerOralRoutes = (app: Hono) => {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
     }
 
+    const clientTokenHash = resolveClientTokenHash(c.req)
+
     try {
       const analysis = await getAnalysis({ analysisId: parsed.value.analysis_id })
       if (!analysis) {
+        return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
+      }
+
+      const ownerSession = await getSession({ sessionId: analysis.sessionId })
+      if (!isSessionOwner(ownerSession, clientTokenHash)) {
         return c.json(buildError('NOT_FOUND', 'analysis not found'), 404)
       }
 

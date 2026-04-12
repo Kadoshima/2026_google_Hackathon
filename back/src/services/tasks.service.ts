@@ -118,19 +118,56 @@ export const enqueueAnalysisTask = async (
   return response.name ?? ''
 }
 
+// Cap in-process concurrent analyses so a burst of uploads cannot exhaust
+// Vertex quota or saturate the event loop. Cloud Tasks is the correct
+// solution for production; this is a safety net for the single-replica
+// in-process dispatch path.
+const IN_PROCESS_MAX_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.IN_PROCESS_ANALYSIS_MAX_CONCURRENCY ?? 2)
+)
+let inProcessActive = 0
+const inProcessWaiting: Array<() => void> = []
+
+const acquireInProcessSlot = async (): Promise<void> => {
+  if (inProcessActive < IN_PROCESS_MAX_CONCURRENCY) {
+    inProcessActive += 1
+    return
+  }
+  await new Promise<void>((resolve) => {
+    inProcessWaiting.push(resolve)
+  })
+  inProcessActive += 1
+}
+
+const releaseInProcessSlot = (): void => {
+  inProcessActive -= 1
+  const next = inProcessWaiting.shift()
+  if (next) next()
+}
+
 const enqueueAnalysisTaskInProcess = (
   input: EnqueueAnalysisTaskInput
 ): string => {
   const requestId = `in_process_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const lockOwner = `task_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 
-  queueMicrotask(async () => {
+  // Use setImmediate instead of queueMicrotask so the HTTP handler's
+  // response is flushed before we start the long-running pipeline.
+  // queueMicrotask runs synchronously before the next macrotask, which
+  // could starve other pending work on the event loop.
+  setImmediate(async () => {
     try {
-      await runAnalysisTask({
-        analysisId: input.analysisId,
-        requestId,
-        lockOwner
-      })
+      await acquireInProcessSlot()
+      try {
+        await runAnalysisTask({
+          analysisId: input.analysisId,
+          requestId,
+          lockOwner
+        })
+      } finally {
+        releaseInProcessSlot()
+      }
     } catch (error) {
       const response = toErrorResponse(error, 'analysis failed')
       console.error(

@@ -6,7 +6,8 @@ import {
   createSession,
   createSubmission
 } from '../../services/firestore.repo.js'
-import { putRawFile } from '../../services/storage.service.js'
+import { deleteObject, putRawFile } from '../../services/storage.service.js'
+import { logger } from '../../utils/logger.js'
 import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
 import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
@@ -94,9 +95,10 @@ export const registerUploadRoutes = (app: Hono) => {
       mode: RetentionMode.NO_SAVE
     }
 
+    let gcsPathRaw: string | undefined
     try {
       const data = Buffer.from(await fileValue.arrayBuffer())
-      const gcsPathRaw = await putRawFile({
+      gcsPathRaw = await putRawFile({
         sessionId,
         submissionId,
         fileName: fileValue.name,
@@ -132,6 +134,19 @@ export const registerUploadRoutes = (app: Hono) => {
 
       return c.json(response, 200)
     } catch (error) {
+      // Best-effort cleanup: if the GCS upload succeeded but the Firestore
+      // writes failed afterwards, the object would be orphaned and never
+      // swept by cascade-delete or the retention cleanup job. Delete it now.
+      if (gcsPathRaw) {
+        try {
+          await deleteObject(gcsPathRaw)
+        } catch (cleanupErr) {
+          logger.warn('upload_orphan_cleanup_failed', {
+            gsPath: gcsPathRaw,
+            error: cleanupErr
+          })
+        }
+      }
       return c.json(
         buildError('INTERNAL_ERROR', 'failed to persist upload', {
           message: error instanceof Error ? error.message : 'unknown error'

@@ -2,10 +2,10 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { registerV1Routes } from './routes/v1/index.js'
 import { registerInternalRoutes } from './routes/internal/index.js'
+import { registerHealthRoutes } from './routes/v1/health.js'
 import { loadConfig } from './utils/config.js'
 import {
   accessLogMiddleware,
-  errorHandlerMiddleware,
   requestIdMiddleware,
   securityHeadersMiddleware
 } from './utils/middleware.js'
@@ -17,8 +17,9 @@ export const createApp = () => {
   const config = loadConfig()
 
   // Order matters: requestId first so subsequent middleware can log with it.
+  // Error handling is centralized in `app.onError` below — we no longer run
+  // a dedicated error-handling middleware here.
   app.use('*', requestIdMiddleware())
-  app.use('*', errorHandlerMiddleware())
   app.use('*', accessLogMiddleware())
   app.use('*', securityHeadersMiddleware())
 
@@ -57,7 +58,6 @@ export const createApp = () => {
       allowHeaders: [
         'Content-Type',
         'Authorization',
-        'X-Client-Token-Hash',
         'X-Client-Token',
         'X-Request-Id',
         'Idempotency-Key'
@@ -67,6 +67,12 @@ export const createApp = () => {
       maxAge: 600
     })
   )
+
+  // Health endpoints MUST live at the root so orchestrator probes
+  // (Cloud Run, Kubernetes, etc.) can reach /healthz and /readyz without
+  // a version prefix. They are still available under /v1 for backward
+  // compatibility via registerV1Routes().
+  registerHealthRoutes(app)
 
   registerV1Routes(app)
   registerInternalRoutes(app)
