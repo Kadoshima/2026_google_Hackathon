@@ -87,3 +87,39 @@ export const settingsApi = {
     return apiClient.put<T>('/settings', settings)
   }
 }
+
+export type WaitlistPlan = 'PRO' | 'TEAM' | 'ENTERPRISE'
+
+export type WaitlistRequest = {
+  email: string
+  plan: WaitlistPlan
+  useCase?: string
+  company?: string
+  source?: string
+}
+
+export type WaitlistResponse = {
+  waitlist_id: string
+  status: 'RECEIVED'
+  message: string
+}
+
+export const waitlistApi = {
+  submit: async (data: WaitlistRequest): Promise<WaitlistResponse> => {
+    return apiClient.post<WaitlistResponse>('/waitlist', data)
+  }
+}
+
+export type QuotaStatusResponse = {
+  plan: 'FREE' | 'PRO' | 'TEAM' | 'ENTERPRISE'
+  used: number
+  limit: number
+  remaining: number
+  window_ends_at: string
+}
+
+export const quotaApi = {
+  get: async (): Promise<QuotaStatusResponse> => {
+    return apiClient.get<QuotaStatusResponse>('/quota')
+  }
+}

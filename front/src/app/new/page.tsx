@@ -2,9 +2,10 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { AlertCircle, CheckCircle, File, Info, Upload, X } from 'lucide-react'
+import { AlertCircle, CheckCircle, File, Info, Upload, X, Sparkles, Lock } from 'lucide-react'
 import type {
   AnalyzeRequest,
   ArtifactCreateRequest,
@@ -12,7 +13,8 @@ import type {
   CapabilitiesResponse,
   UploadMetadata
 } from 'shared'
-import { analysisApi, artifactApi, capabilitiesApi, uploadApi } from '@/api'
+import { analysisApi, artifactApi, capabilitiesApi, quotaApi, uploadApi } from '@/api'
+import { ApiClientError } from '@/api/client'
 import { Badge, Button, Card, CardHeader, ProgressBar } from '@/components/ui'
 import { cn, formatFileSize } from '@/lib/utils'
 import { useAppStore } from '@/store/useAppStore'
@@ -77,6 +79,13 @@ export default function NewSessionPage() {
     staleTime: 60_000
   })
 
+  const quotaQuery = useQuery({
+    queryKey: ['quota'],
+    queryFn: () => quotaApi.get(),
+    staleTime: 30_000
+  })
+  const quota = quotaQuery.data
+
   const selectedCapability = useMemo(() => {
     return capabilitiesQuery.data?.artifact_adapters.find(
       (adapter) => adapter.artifact_type === options.artifactType
@@ -110,6 +119,7 @@ export default function NewSessionPage() {
     onSuccess: ({ upload, analyze }) => {
       const now = new Date().toISOString()
       const clientToken = localStorage.getItem('client_session_token') || ensureClientToken()
+      void quotaQuery.refetch()
       const title = resolveSessionTitle({ file, options })
 
       addSession({
@@ -189,8 +199,20 @@ export default function NewSessionPage() {
     }))
   }
 
+  const mutationError =
+    createSessionMutation.error instanceof ApiClientError
+      ? createSessionMutation.error
+      : undefined
+  const quotaExceeded = mutationError?.code === 'QUOTA_EXCEEDED'
+
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto space-y-4">
+      <QuotaBanner
+        quota={quota}
+        loading={quotaQuery.isLoading}
+        quotaExceeded={quotaExceeded}
+      />
+
       <Card>
         <CardHeader
           title="新規査読セッション"
@@ -517,7 +539,7 @@ export default function NewSessionPage() {
             </div>
           )}
 
-          {createSessionMutation.isError && (
+          {createSessionMutation.isError && !quotaExceeded && (
             <div className="mb-4 p-4 bg-red-50 rounded-lg">
               <div className="flex items-center gap-2 text-red-800">
                 <AlertCircle className="w-5 h-5" />
@@ -836,4 +858,71 @@ function toStatusVariant(
   if (status === 'ready') return 'success'
   if (status === 'beta') return 'warning'
   return 'default'
+}
+
+function QuotaBanner({
+  quota,
+  loading,
+  quotaExceeded
+}: {
+  quota?: { plan: string; used: number; limit: number; remaining: number; window_ends_at: string }
+  loading: boolean
+  quotaExceeded: boolean
+}) {
+  if (loading || !quota) return null
+  if (quota.limit === 0 && !quotaExceeded) return null
+
+  if (quotaExceeded) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+        <div className="flex items-start gap-3">
+          <Lock className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-900">
+              Free プランの月間解析上限に達しました
+            </p>
+            <p className="text-sm text-red-700 mt-1">
+              Pro プランにアップグレードすると月 50 本まで解析できます。次回リセット:{' '}
+              {new Date(quota.window_ends_at).toLocaleDateString('ja-JP')}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Link href="/pricing">
+                <Button size="sm">
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  プランを見る
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (quota.remaining <= 2) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" aria-hidden="true" />
+          <p className="text-sm text-amber-900">
+            Free プランの残り回数: <strong>{quota.remaining}</strong> / {quota.limit}（今月）
+          </p>
+        </div>
+        <Link href="/pricing" className="text-xs font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2 flex-shrink-0">
+          アップグレード →
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-center justify-between gap-3">
+      <p className="text-xs text-gray-600">
+        Free プラン: 今月の残り <strong className="text-gray-900">{quota.remaining}</strong> 回 / {quota.limit} 回
+      </p>
+      <Link href="/pricing" className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
+        Pro を見る →
+      </Link>
+    </div>
+  )
 }

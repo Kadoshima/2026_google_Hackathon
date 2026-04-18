@@ -18,7 +18,8 @@ import {
   ChatThread,
   EvidenceMapTable,
   TextHeatmapViewer,
-  TodoList
+  TodoList,
+  UnderstandingScoreCard
 } from '@/features'
 import { useAppStore } from '@/store/useAppStore'
 import type { ChatMessage, ClaimEvidence, Session, TodoItem, VaguePoint } from '@/types'
@@ -400,6 +401,7 @@ export default function SessionPage() {
       {activeTab === 'summary' && (
         <SummaryTab
           analysis={analysisQuery.data}
+          sessionId={sessionId}
         />
       )}
       {activeTab === 'evidence' && (
@@ -585,11 +587,14 @@ function TabBar({
 }
 
 function SummaryTab({
-  analysis
+  analysis,
+  sessionId
 }: {
   analysis: AnalysisResponse | undefined
+  sessionId: string
 }) {
   const summary = analysis && 'summary' in analysis ? analysis.summary : undefined
+  const understandingScore = summary?.understanding_score
   const topRisks =
     summary?.top_risks ??
     (summary?.top3_risks ?? []).map((risk) => ({
@@ -619,6 +624,12 @@ function SummaryTab({
 
   return (
     <div className="space-y-4">
+      {understandingScore && (
+        <UnderstandingScoreCard
+          score={understandingScore}
+          oralDefenseHref={`/session/${sessionId}?tab=oral`}
+        />
+      )}
       <div className="grid md:grid-cols-3 gap-3">
         <Card>
           <p className="text-xs text-gray-500">主張数</p>

@@ -11,6 +11,8 @@ import { registerSessionRoutes } from './sessions.js'
 import { registerSettingsRoutes } from './settings.js'
 import { registerUploadRoutes } from './upload.js'
 import { registerDemoRoutes } from './demo.js'
+import { registerWaitlistRoutes } from './waitlist.js'
+import { registerQuotaRoutes } from './quota.js'
 import { loadConfig } from '../../utils/config.js'
 import { createRateLimitMiddleware } from '../../utils/rateLimit.js'
 import { createIdempotencyMiddleware } from '../../utils/idempotency.js'
@@ -34,6 +36,7 @@ export const registerV1Routes = (app: Hono) => {
   v1.use('/analyze', createRateLimitMiddleware('analyze', toCfg(config.rateLimit.analyze)))
   v1.use('/oral/*', createRateLimitMiddleware('oral', toCfg(config.rateLimit.oral)))
   v1.use('/patch/*', createRateLimitMiddleware('patch', toCfg(config.rateLimit.patch)))
+  v1.use('/waitlist', createRateLimitMiddleware('waitlist', toCfg(config.rateLimit.waitlist)))
 
   // Idempotency-Key: opt-in, applies only when the header is present.
   v1.use('/upload', createIdempotencyMiddleware('upload'))
@@ -54,6 +57,8 @@ export const registerV1Routes = (app: Hono) => {
   registerCapabilitiesRoutes(v1)
   registerHealthRoutes(v1)
   registerDemoRoutes(v1)
+  registerWaitlistRoutes(v1)
+  registerQuotaRoutes(v1)
 
   app.route('/v1', v1)
 }

@@ -5,7 +5,7 @@ import type { MetadataRoute } from 'next';
  * Adjust the siteUrl via the SITE_URL env variable at build time.
  */
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.example.com';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.app';
 
   return {
     rules: [

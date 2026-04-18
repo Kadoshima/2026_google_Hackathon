@@ -1,8 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardHeader, Button, ProgressBar } from '@/components/ui';
-import { Play, MessageSquare } from 'lucide-react';
+import { UnderstandingScoreCard } from '@/features';
+import { Play, MessageSquare, ArrowRight } from 'lucide-react';
+import type { UnderstandingScore } from 'shared';
+
+const DEMO_SCORE: UnderstandingScore = {
+  total: 38,
+  breakdown: {
+    evidence: 32,
+    logic: 41,
+    preflight: 45,
+    specificity: 40
+  },
+  label: 'WEAK',
+  version: 'v1'
+};
+
+const DEMO_SCORE_AFTER: UnderstandingScore = {
+  total: 74,
+  breakdown: {
+    evidence: 78,
+    logic: 70,
+    preflight: 82,
+    specificity: 68
+  },
+  label: 'GOOD',
+  version: 'v1'
+};
 
 const demoSteps = [
   {
@@ -101,6 +128,15 @@ export default function DemoPage() {
 
       {/* Demo Content */}
       {currentStep >= 1 && (
+        <div className="mb-6">
+          <UnderstandingScoreCard score={DEMO_SCORE} />
+          <p className="mt-2 text-xs text-gray-500 text-center">
+            このサンプル論文は Evidence と Specificity が不足しています。
+          </p>
+        </div>
+      )}
+
+      {currentStep >= 1 && (
         <Card className="mb-8">
           <CardHeader
             title="解析サマリ（デモ）"
@@ -138,7 +174,7 @@ export default function DemoPage() {
             <div className="grid grid-cols-3 gap-4 mt-6">
               <MetricBox label="エビデンス欠如" value="5箇所" color="red" />
               <MetricBox label="具体性欠如" value="12箇所" color="yellow" />
-              <MetricBox label="総合スコア" value="72/100" color="green" />
+              <MetricBox label="主張数" value="18" color="green" />
             </div>
           </div>
         </Card>
@@ -208,6 +244,41 @@ export default function DemoPage() {
             </div>
           </div>
         </Card>
+      )}
+
+      {currentStep >= 3 && (
+        <div className="mt-8 space-y-3">
+          <p className="text-center text-sm text-gray-600">
+            追記を反映すると Understanding Score はこう変わります
+          </p>
+          <UnderstandingScoreCard score={DEMO_SCORE_AFTER} />
+        </div>
+      )}
+
+      {currentStep >= demoSteps.length - 1 && (
+        <div className="mt-10">
+          <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-8 md:p-12 text-center text-white shadow-lg">
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">
+              自分の論文で試してみる
+            </h2>
+            <p className="text-indigo-100 mb-6 max-w-xl mx-auto text-sm md:text-base">
+              数分で Understanding Score と弱点リストが手に入ります。クレジットカード不要。
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/new">
+                <Button size="lg" variant="outline" className="bg-white text-indigo-700 hover:bg-indigo-50 border-white">
+                  Free で査読する
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </Link>
+              <Link href="/pricing">
+                <Button size="lg" variant="outline" className="text-white border-white hover:bg-white/10">
+                  料金プランを見る
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

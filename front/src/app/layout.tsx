@@ -3,7 +3,7 @@ import './globals.css';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { AppShell } from '@/components/layout/AppShell';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.example.com';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reviewer-zero.app';
 const siteName = 'Reviewer Zero';
 const description =
   'AI時代の説明責任レイヤー。投稿前に「本当に理解しているか」をDecompose → Challenge → Verifyで検証し、説明できた内容だけを成果物に反映します。';

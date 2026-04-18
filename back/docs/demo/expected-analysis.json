@@ -192,11 +192,22 @@
       "no_evidence_claims": 2,
       "weak_evidence_claims": 2,
       "specificity_lack": 7
+    },
+    "understanding_score": {
+      "total": 38,
+      "breakdown": {
+        "evidence": 32,
+        "logic": 41,
+        "preflight": 45,
+        "specificity": 40
+      },
+      "label": "WEAK",
+      "version": "v1"
     }
   },
   "pointers": {
-    "analysis_json_signed_url": "https://demo.reviewer-zero.example.com/demo/analysis.json",
-    "report_html_signed_url": "https://demo.reviewer-zero.example.com/demo/report.html",
-    "extract_json_signed_url": "https://demo.reviewer-zero.example.com/demo/extract.json"
+    "analysis_json_signed_url": "https://demo.reviewer-zero.app/demo/analysis.json",
+    "report_html_signed_url": "https://demo.reviewer-zero.app/demo/report.html",
+    "extract_json_signed_url": "https://demo.reviewer-zero.app/demo/extract.json"
   }
 }

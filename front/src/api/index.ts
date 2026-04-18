@@ -10,4 +10,12 @@ export {
   patchApi,
   reportApi,
   settingsApi,
+  waitlistApi,
+  quotaApi,
+} from './endpoints';
+export type {
+  WaitlistPlan,
+  WaitlistRequest,
+  WaitlistResponse,
+  QuotaStatusResponse,
 } from './endpoints';

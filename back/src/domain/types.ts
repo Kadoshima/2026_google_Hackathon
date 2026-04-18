@@ -31,6 +31,21 @@ export type AnalysisMetrics = {
   noEvidenceClaimsCount?: number
   weakEvidenceClaimsCount?: number
   specificityLackCount?: number
+  understandingScore?: UnderstandingScore
+}
+
+export type UnderstandingScoreLabel = 'CRITICAL' | 'WEAK' | 'FAIR' | 'GOOD' | 'STRONG'
+
+export type UnderstandingScore = {
+  total: number
+  breakdown: {
+    evidence: number
+    logic: number
+    preflight: number
+    specificity: number
+  }
+  label: UnderstandingScoreLabel
+  version: 'v1'
 }
 
 export type AgentRole =
@@ -192,6 +207,7 @@ export type AnalysisResultJson = {
     }>
   }
   metrics?: AnalysisMetrics
+  understandingScore?: UnderstandingScore
   preflight: PreflightResult
   generatedAt: string
   extractPath?: string

@@ -79,7 +79,7 @@ export default function PrivacyPolicyPage() {
           <li>本ポリシーの内容に関する問い合わせ</li>
         </ul>
         <p>
-          請求は <code>privacy@reviewer-zero.example</code>（実運用前にご自身のドメインに置き換えてください）
+          請求は <code>privacy@reviewer-zero.app</code>（本番ドメイン確定時に更新）
           までご連絡ください。リクエストIDをご記入いただくと対応がスムーズです。
         </p>
 

@@ -130,6 +130,21 @@ export type AnalysisSummary = {
     weak_evidence_claims?: number
     specificity_lack?: number
   }
+  understanding_score?: UnderstandingScore
+}
+
+export type UnderstandingScoreLabel = 'CRITICAL' | 'WEAK' | 'FAIR' | 'GOOD' | 'STRONG'
+
+export type UnderstandingScore = {
+  total: number
+  breakdown: {
+    evidence: number
+    logic: number
+    preflight: number
+    specificity: number
+  }
+  label: UnderstandingScoreLabel
+  version: 'v1'
 }
 
 export type AnalysisPointers = {

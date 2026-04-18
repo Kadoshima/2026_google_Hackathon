@@ -5,8 +5,8 @@ in place across the backend, frontend, and infrastructure.
 
 ## Reporting a vulnerability
 
-If you discover a security issue, please email **security@reviewer-zero.example**
-(replace with your real address before going live). Do **not** open a public
+If you discover a security issue, please email **security@reviewer-zero.app**
+(update to your production address at go-live). Do **not** open a public
 GitHub issue. We aim to acknowledge reports within 2 business days.
 
 ## Threat model summary

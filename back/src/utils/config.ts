@@ -25,6 +25,7 @@ export type AppConfig = {
     analyze: { max: number; windowMs: number }
     oral: { max: number; windowMs: number }
     patch: { max: number; windowMs: number }
+    waitlist: { max: number; windowMs: number }
     enabled: boolean
   }
 
@@ -112,6 +113,10 @@ export const loadConfig = (): AppConfig => {
       patch: {
         max: parseNumber(process.env.PATCH_RATE_LIMIT_MAX, 30),
         windowMs: parseNumber(process.env.PATCH_RATE_LIMIT_WINDOW_MS, 60_000)
+      },
+      waitlist: {
+        max: parseNumber(process.env.WAITLIST_RATE_LIMIT_MAX, 5),
+        windowMs: parseNumber(process.env.WAITLIST_RATE_LIMIT_WINDOW_MS, 600_000)
       }
     },
 

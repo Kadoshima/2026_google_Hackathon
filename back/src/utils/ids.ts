@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 export { makeId }
 // 必要なものをinport
 // type makeId = (prefix: string) => string:
-type IdPrefix = 'sess' | 'sub' | 'ana' | 'upl' | 'rep' | 'turn' | 'todo'
+type IdPrefix = 'sess' | 'sub' | 'ana' | 'upl' | 'rep' | 'turn' | 'todo' | 'wait'
 
 const makeId = (prefix: IdPrefix): string => {
   // prefixとUUIDの結合

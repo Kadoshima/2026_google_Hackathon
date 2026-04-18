@@ -9,6 +9,7 @@ import { buildError } from '../../utils/errors.js'
 import { makeId } from '../../utils/ids.js'
 import { createFixedWindowRateLimiter } from '../../utils/rateLimit.js'
 import { resolveClientTokenHash } from '../../utils/security.js'
+import { checkAndIncrementFreeQuota } from '../../services/quota.service.js'
 
 const analyzeRateLimiter = createFixedWindowRateLimiter({
   maxRequests: Number(process.env.ANALYZE_RATE_LIMIT_MAX ?? 60),
@@ -39,6 +40,24 @@ export const registerAnalyzeRoutes = (app: Hono) => {
     const parsed = parseAnalyzeRequest(body)
     if (!parsed.ok) {
       return c.json(buildError('INVALID_INPUT', parsed.message), 400)
+    }
+
+    const quota = await checkAndIncrementFreeQuota(clientTokenHash)
+    if (!quota.allowed) {
+      return c.json(
+        buildError(
+          'QUOTA_EXCEEDED',
+          'Free プランの月間解析上限に達しました。Pro プランにアップグレードしてください。',
+          {
+            plan: quota.plan,
+            used: quota.used,
+            limit: quota.limit,
+            window_ends_at: quota.windowEndsAtIso,
+            upgrade_url: '/pricing'
+          }
+        ),
+        402
+      )
     }
 
     const analysisId = makeId('ana')

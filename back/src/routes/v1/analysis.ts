@@ -42,7 +42,10 @@ export const registerAnalysisRoutes = (app: Hono) => {
         return c.json(base, 200)
       }
 
-      const summary = await buildSummary(analysis.metrics, analysis.pointers?.gcsAnalysisJson)
+      const summary = await buildSummary(
+        analysis.metrics,
+        analysis.pointers?.gcsAnalysisJson
+      )
       const pointers = await buildPointers(analysis.pointers)
 
       const readyResponse: AnalysisReadyResponse = {
@@ -85,11 +88,7 @@ const resolveProgressMessage = (analysis: {
 }
 
 const buildSummary = async (
-  metrics: {
-    noEvidenceClaimsCount?: number
-    weakEvidenceClaimsCount?: number
-    specificityLackCount?: number
-  } | undefined,
+  metrics: import('../../domain/types.js').AnalysisMetrics | undefined,
   analysisJsonPath: string | undefined
 ): Promise<AnalysisSummary | undefined> => {
   const result = await readAnalysisResult(analysisJsonPath)
@@ -100,6 +99,8 @@ const buildSummary = async (
         metrics.weakEvidenceClaimsCount !== undefined ||
         metrics.specificityLackCount !== undefined)
   )
+
+  const understandingScore = metrics?.understandingScore ?? result?.understandingScore
 
   const topRisks = toTopRisks(result)
   const top3Risks = topRisks.slice(0, 3).map((risk) => ({
@@ -115,7 +116,8 @@ const buildSummary = async (
     agents.length > 0 ||
     claimEvidence.length > 0 ||
     logicRisks.length > 0 ||
-    preflightSummary !== undefined
+    preflightSummary !== undefined ||
+    understandingScore !== undefined
 
   if (!hasMetric && topRisks.length === 0 && !hasStructuredDetails) return undefined
 
@@ -140,7 +142,8 @@ const buildSummary = async (
     ...(claimEvidence.length > 0 ? { claim_evidence: claimEvidence } : {}),
     ...(logicRisks.length > 0 ? { logic_risks: logicRisks } : {}),
     ...(preflightSummary ? { preflight_summary: preflightSummary } : {}),
-    ...(Object.keys(metricFields).length > 0 ? { metrics: metricFields } : {})
+    ...(Object.keys(metricFields).length > 0 ? { metrics: metricFields } : {}),
+    ...(understandingScore ? { understanding_score: understandingScore } : {})
   }
 }
 

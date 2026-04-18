@@ -20,6 +20,7 @@ import { auditEvidence } from './evidenceAuditor.js'
 import { inspectLogic } from './logicSentinel.js'
 import { proposePriorArtQueries } from './priorArtCoach.js'
 import { computeMetrics } from './scoring.js'
+import { computeUnderstandingScore } from './understandingScore.js'
 import { runPrompt } from '../llm/vertex.client.js'
 import { buildClaimPrompt } from '../llm/prompts.js'
 import { claimOutputSchema } from '../llm/jsonSchemas.js'
@@ -406,10 +407,18 @@ export class AnalysisOrchestrator {
           : 'WEAK_EVIDENCE'
       }))
     })
+    const understandingScore = computeUnderstandingScore({
+      claims,
+      evidenceRisks: evidenceResult.risks,
+      logicRisks: logicResult.risks,
+      preflight
+    })
+    metrics.understandingScore = understandingScore
     await this.repo.setMetrics(analysisId, metrics)
     logAnalysisDebug('analysis_metrics_done', {
       analysisId,
-      metrics
+      metrics,
+      understandingScore: understandingScore.total
     })
 
     const topRisks = this.buildTopRisks({
@@ -427,9 +436,9 @@ export class AnalysisOrchestrator {
       status: warnings.length > 0 ? 'WARN' : 'DONE',
       summary: `topRisks=${topRisks.length}, warnings=${warnings.length}`,
       highlights: [
-        `noEvidence=${metrics.noEvidenceClaimsCount ?? 0}`,
-        `weakEvidence=${metrics.weakEvidenceClaimsCount ?? 0}`,
-        `specificityLack=${metrics.specificityLackCount ?? 0}`
+        `understandingScore=${understandingScore.total}/100 (${understandingScore.label})`,
+        `evidence=${understandingScore.breakdown.evidence}, logic=${understandingScore.breakdown.logic}`,
+        `noEvidence=${metrics.noEvidenceClaimsCount ?? 0}, weakEvidence=${metrics.weakEvidenceClaimsCount ?? 0}`
       ]
     })
     await syncAgentTrace()
@@ -443,6 +452,7 @@ export class AnalysisOrchestrator {
       priorArtQueries: priorArtResult.queries,
       summary: { topRisks },
       metrics,
+      understandingScore,
       preflight,
       generatedAt: new Date().toISOString(),
       extractPath: extractGsPath,

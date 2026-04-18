@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
-import { Menu, Settings, PlusCircle, Home } from 'lucide-react';
+import { Menu, Settings, PlusCircle, Home, Sparkles } from 'lucide-react';
 
 export function TopNav() {
   const toggleSideNav = useAppStore((state) => state.toggleSideNav);
@@ -39,6 +39,13 @@ export function TopNav() {
           >
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">新規査読</span>
+          </Link>
+          <Link
+            href="/pricing"
+            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">料金</span>
           </Link>
           <Link
             href="/settings"
